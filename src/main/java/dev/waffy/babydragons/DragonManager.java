@@ -167,7 +167,7 @@ public final class DragonManager {
  public void shutdown() {
   try { plugin.attacks().cancel(); }
   finally {
-   try { plugin.effects().clearAll();save(); }
+   try { if(controller!=null && controller.isValid()) plugin.movement().stop(controller);plugin.effects().clearAll();save(); }
    finally { try { plugin.models().detach(); } finally { releaseTicket(); } }
   }
  }
