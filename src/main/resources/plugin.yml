@@ -1,0 +1,22 @@
+name: BaByDragons
+version: 0.67.A
+main: dev.waffy.babydragons.BaByDragonsPlugin
+api-version: '26.3'
+depend: [ModelEngine]
+description: Phase 1 Galaxy Dragon companion
+commands:
+  dragon:
+    description: Control your dragon
+    permission: babydragons.use
+  dragonadmin:
+    description: Manage the single Phase 1 dragon
+    permission: babydragons.admin
+permissions:
+  babydragons.use:
+    default: true
+  babydragons.name:
+    default: true
+  babydragons.attack:
+    default: true
+  babydragons.admin:
+    default: op

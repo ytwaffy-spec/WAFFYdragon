@@ -1,0 +1,11 @@
+prefix: "<#B026FF>✦ <gray>"
+not-owner: "<#FF7777>This dragon belongs to another player."
+no-dragon: "<gray>No dragon exists. Ask an operator to use /dragonadmin spawn."
+busy: "<#FFCC77>Your dragon is already performing an attack."
+ready: "<#55FF88>Inferno Strike Ready"
+coming-soon: "<gray>Coming in Phase 2"
+rename-help:
+  - "<gray>To rename your dragon, use:"
+  - "<#DD88FF>/dragon name <name> <color>"
+  - "<gray>Examples: <white>/dragon name Nova purple"
+  - "<white>/dragon name Nova #B026FF"

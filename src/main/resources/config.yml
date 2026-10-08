@@ -1,0 +1,55 @@
+# Owner-supplied IDs, validated against the installed ModelEngine registry.
+models:
+  galaxy:
+    id: cubee-galaxy_dragon
+  fire:
+    id: cubee-fire_dragon
+animations:
+  idle: idle
+  follow: walk
+  pet: pet
+  auto-attack: execute
+  fire-attack: execute
+  # Sequence timings; tune against the purchased animation clips.
+  pet-ticks: 40
+  execute-windup-ticks: 20
+  execute-recovery-ticks: 30
+movement:
+  follow-distance: 3.0
+  teleport-distance: 24.0
+  attack-stop-distance: 2.0
+  update-ticks: 2
+  speed-per-tick: 0.28
+  attack-speed-per-tick: 0.45
+  attack-timeout-seconds: 20
+  name-height: 2.5
+effects:
+  strength: {enabled: true, amplifier: 1}
+  haste: {enabled: true, amplifier: 1}
+  absorption: {enabled: true, amplifier: 0}
+  refresh-ticks: 40
+  duration-ticks: 160
+auto-attack:
+  enabled-by-default: true
+  cooldown-seconds: 30
+  damage: 6.0
+  levitation-seconds: 5
+  levitation-amplifier: 0
+  breath-radius: 2.5
+manual-attack:
+  enabled-by-default: true
+  target-range: 64
+  cooldown-seconds: 30
+  damage: 8.0
+  radius: 2.5
+  allowed-items: [AIR, STICK]
+  required-hotbar-slot: 9
+  break-blocks: false
+  crystal-ticks: 6
+gui:
+  title: "<gradient:#9D4EDD:#FF4DFF><bold>✦ Dragon Control ✦</bold></gradient>"
+storage:
+  enabled: false
+  title: "<gradient:#9D4EDD:#FF4DFF>Dragon Storage</gradient>"
+persistence:
+  save-interval-ticks: 200

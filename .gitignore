@@ -1,0 +1,21 @@
+.gradle/
+build/
+.local/
+run/
+server/
+logs/
+world*/
+plugins/
+*.bbmodel
+*.glb
+*.gltf
+*.png
+*.zip
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+!downloads/BaByDragons 0.67.A.jar
+**/blueprints/
+**/textures/
+**/resourcepack/
+purchased/
+vendor/
