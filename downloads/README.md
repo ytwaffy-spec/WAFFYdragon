@@ -1,4 +1,18 @@
-# BabyDragon Downloads
+# BaByDragons Downloads
+
+## Current: BaByDragons 0.67.A
+
+**[Download BaByDragons 0.67.A.jar](https://github.com/ytwaffy-spec/WAFFYdragon/blob/main/downloads/BaByDragons%200.67.A.jar?raw=true)**
+
+Paper 26.3, Java 25, ModelEngine 4 required. Use your existing working ModelEngine
+resource pack and installed `cubee-galaxy_dragon` / `cubee-fire_dragon` blueprints.
+Remove the old prototype JAR before installing this one, then run `/dragonadmin spawn`.
+
+This reconstructed development build passes 19 automated logic tests. Live
+Paper/ModelEngine/client behavior is not tested. See the [installation guide](../README.md)
+and [test report](../TESTING.md). No purchased assets are included.
+
+## Historical: BabyDragon 0.1.0 prototype
 
 Paper 26.3 / Java 25 proof of concept. Both files are required to see the custom dragon:
 
