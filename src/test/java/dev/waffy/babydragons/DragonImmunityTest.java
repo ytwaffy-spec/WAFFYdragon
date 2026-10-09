@@ -16,7 +16,8 @@ class DragonImmunityTest {
   when(plugin.settings()).thenReturn(new Settings(new SettingsTest().defaults()));when(plugin.dragons()).thenReturn(dragons);when(plugin.getServer()).thenReturn(server);
   var data=new DragonData();data.dragonName="Nova";when(dragons.data()).thenReturn(data);
   UUID id=UUID.randomUUID();when(owner.getUniqueId()).thenReturn(id);when(server.getPlayer(id)).thenReturn(owner);
-  var immunity=new DragonImmunity(plugin);immunity.begin(owner);assertTrue(immunity.active());
+  var immunity=new DragonImmunity(plugin);UUID token=UUID.randomUUID();immunity.begin(owner,token);immunity.begin(owner,token);assertTrue(immunity.active());
+  immunity.end(UUID.randomUUID());assertTrue(immunity.active());
   verify(owner).removePotionEffect(PotionEffectType.POISON);verify(owner).removePotionEffect(PotionEffectType.WITHER);
   verify(owner,never()).removePotionEffect(PotionEffectType.STRENGTH);
   verify(owner).sendMessage(argThat((net.kyori.adventure.text.Component message)->message.toString().contains("Nova")));

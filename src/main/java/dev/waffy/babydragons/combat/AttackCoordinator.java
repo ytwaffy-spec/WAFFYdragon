@@ -13,7 +13,7 @@ public final class AttackCoordinator {
   UUID token,owner;AttackGate.Kind kind;DragonState previous;DragonData.Position seat;
   LivingEntity enemy;Location target,origin,lastProgress;
   Phase phase=Phase.APPROACH;long phaseStart,executeStart,progressTick;
-  int animationTicks;boolean impact,completed;ChainStrikes chain;
+  int animationTicks;boolean startHitDone,midHitDone,endHitDone,completed;ChainStrikes chain;
  }
  private final BaByDragonsPlugin plugin;
  private final AttackGate gate=new AttackGate();
@@ -41,16 +41,15 @@ public final class AttackCoordinator {
   double range=plugin.settings().d(kind==AttackGate.Kind.AUTO?"galaxy-attack.max-chase-distance":"fire-attack.target-range");
   if(owner.getLocation().distanceSquared(enemy.getLocation())>range*range) return false;
   int animationTicks=plugin.models().attackTicks(kind==AttackGate.Kind.MANUAL);
-  int finalMoment=kind==AttackGate.Kind.AUTO?plugin.settings().strikes().getLast():plugin.settings().i("fire-attack.animation.impact-delay-ticks");
-  if(finalMoment>animationTicks-4) throw new IllegalStateException("Configured strike/impact timing exceeds the execute clip length. Adjust attack timings or animation speed.");
+  List<Integer> strikeTicks=plugin.settings().strikes();
+  int clipTicks=Math.max(4,animationTicks-4);
+  if(strikeTicks.getLast()>clipTicks) strikeTicks=java.util.stream.IntStream.rangeClosed(1,4).map(i->i*clipTicks/4).boxed().toList();
   UUID token=gate.acquire(plugin.dragons().data(),kind,System.currentTimeMillis());if(token==null) return false;
   Sequence s=new Sequence();s.token=token;s.kind=kind;s.owner=owner.getUniqueId();s.animationTicks=animationTicks;
   s.previous=plugin.dragons().data().state;s.seat=plugin.dragons().data().sittingLocation;
   s.enemy=enemy;s.target=enemy.getLocation();s.origin=s.target.clone();s.phaseStart=plugin.tick();
-  s.progressTick=plugin.tick();s.lastProgress=base.getLocation();s.chain=new ChainStrikes(plugin.settings().strikes());
+  s.progressTick=plugin.tick();s.lastProgress=base.getLocation();s.chain=new ChainStrikes(strikeTicks);
   sequence=s;
-  try { if(kind==AttackGate.Kind.AUTO) plugin.immunity().begin(owner); }
-  catch(RuntimeException e) { cancel();throw e; }
   return true;
  }
  public void tick(long tick) {
@@ -67,6 +66,7 @@ public final class AttackCoordinator {
      refreshTarget(s,owner);
      Location destination=s.kind==AttackGate.Kind.MANUAL?s.target.clone().add(0,1.7,0):s.target;
      boolean arrived=plugin.movement().toward(base,destination,plugin.settings().d("movement.attack.max-speed"),s.kind==AttackGate.Kind.MANUAL?.15:plugin.settings().d("movement.attack-stop-distance"));
+     plugin.movement().face(base,s.target);
      plugin.animations().normal(!arrived,tick);
      if(arrived) beginExecute(s,base,tick);
      else if(stuck(s,base,tick)) emergencyReturn(s,base,owner);
@@ -75,18 +75,19 @@ public final class AttackCoordinator {
      long elapsed=tick-s.executeStart;
      if(s.kind==AttackGate.Kind.AUTO) galaxy(s,owner,base,elapsed);
      else fire(s,owner,base,elapsed);
-     boolean moments=s.kind==AttackGate.Kind.AUTO?s.chain.complete():s.impact && crystal==null;
+     boolean moments=s.kind==AttackGate.Kind.AUTO?s.chain.complete():s.endHitDone && crystal==null;
      if(moments && elapsed>=s.animationTicks && plugin.models().attackFinished(s.kind==AttackGate.Kind.MANUAL)) {
       if(s.kind==AttackGate.Kind.AUTO) levitate(s,owner);
       s.completed=true;startReturn(s,tick);
-     } else if(elapsed>Math.max(s.animationTicks,Math.max(plugin.settings().strikes().getLast(),plugin.settings().i("fire-attack.animation.impact-delay-ticks")))+200) {
+     } else if(elapsed>Math.max(s.animationTicks,plugin.settings().strikes().getLast())+200) {
       plugin.getLogger().warning("Execute completion watchdog expired; recovering dragon safely");
       startReturn(s,tick);
      }
     }
     case RETURN -> {
      Location destination=s.previous==DragonState.SITTING?DragonMovementController.location(s.seat):owner.getLocation().add(0,.2,0);
-     boolean arrived=plugin.movement().toward(base,destination,plugin.settings().d("movement.attack.max-speed"),s.previous==DragonState.SITTING?0:plugin.settings().d("movement.follow.distance"));
+     boolean arrived=plugin.movement().toward(base,destination,plugin.settings().d("movement.return.max-speed"),s.previous==DragonState.SITTING?0:plugin.settings().d("movement.follow.distance"));
+     plugin.movement().face(base,destination);
      plugin.animations().normal(!arrived,tick);
      if(arrived) finish(false);else if(stuck(s,base,tick)) emergencyReturn(s,base,owner);
     }
@@ -102,7 +103,9 @@ public final class AttackCoordinator {
   if(manual) played=plugin.models().beginFire();
   if(!played) { cancel();return; }
   s.phase=Phase.EXECUTE;s.executeStart=tick;
+  if(!manual) plugin.immunity().begin(plugin.dragons().owner(),s.token);
   plugin.sounds().play(manual?"fire-execute":"galaxy-execute-start",base.getLocation(),null);
+  if(manual) fire(s,plugin.dragons().owner(),base,0);
  }
  private boolean eligible(Sequence s,LivingEntity target,Player owner) {
   if(target==null || !plugin.damage().allowed(target,owner,s.kind==AttackGate.Kind.MANUAL)) return false;
@@ -140,7 +143,7 @@ public final class AttackCoordinator {
     UUID selected=s.enemy==null?null:s.enemy.getUniqueId();
     s.target.getWorld().spawnParticle(Particle.DRAGON_BREATH,s.target.clone().add(0,.8,0),16,.6,.3,.6,.01);
     plugin.sounds().play("galaxy-strike",s.target,null);
-    if(eligible(s,s.enemy,owner) && base.getLocation().distanceSquared(s.target)<=2.5*2.5) {
+    if(eligible(s,s.enemy,owner) && base.getLocation().distanceSquared(s.target)<=3.5*3.5) {
      double amount=plugin.settings().d(s.enemy instanceof Player?"galaxy-attack.player-damage-per-strike":"galaxy-attack.mob-damage-per-strike");
      if(plugin.damage().damage(s.enemy,owner,amount,false)) s.chain.hit(selected);
     }
@@ -149,25 +152,27 @@ public final class AttackCoordinator {
   } else { plugin.movement().stop(base);plugin.movement().face(base,s.target); }
  }
  private void fire(Sequence s,Player owner,Vex base,long elapsed) {
-  // Track the locked entity, not the block under the crosshair, until impact.
-  if(!s.impact) {
-   refreshTarget(s,owner);
-   plugin.movement().toward(base,s.target.clone().add(0,1.7,0),plugin.settings().d("movement.attack.max-speed"),.15);
-   plugin.movement().face(base,s.target);beam(base,s.target);
-   if(elapsed>=plugin.settings().i("fire-attack.animation.impact-delay-ticks")) {
-    s.impact=true;spawnCrystal(s.target.clone().add(0,.5,0));
-    plugin.sounds().play("crystal-pop",s.target,null);
-    World world=s.target.getWorld();world.spawnParticle(Particle.EXPLOSION,s.target,1);
-    world.spawnParticle(Particle.FLAME,s.target,32,1,.6,1,.02);world.spawnParticle(Particle.END_ROD,s.target,12,.8,.5,.8,.02);
-    double x=plugin.settings().d("fire-attack.blast-radius.x"),y=plugin.settings().d("fire-attack.blast-radius.y"),z=plugin.settings().d("fire-attack.blast-radius.z");
-    if(base.getLocation().distanceSquared(s.target)<=4*4)
-     for(Entity e:world.getNearbyEntities(s.target,x,y,z)) if(e instanceof LivingEntity living)
-      plugin.damage().damage(living,owner,plugin.settings().d(living instanceof Player?"fire-attack.player-damage":"fire-attack.mob-damage"),true);
-   }
-  } else {
-   plugin.movement().stop(base);
-   if(elapsed>=plugin.settings().i("fire-attack.animation.impact-delay-ticks")+2) removeCrystal();
-  }
+  refreshTarget(s,owner);
+  plugin.movement().toward(base,s.target.clone().add(0,1.7,0),plugin.settings().d("movement.attack.max-speed"),.15);
+  plugin.movement().face(base,s.target);beam(base,s.target);
+  int clipTicks=Math.max(1,s.animationTicks-4);
+  if(!s.startHitDone) { s.startHitDone=true;fireHit(s,owner,base,0); }
+  if(!s.midHitDone && elapsed>=clipTicks/2) { s.midHitDone=true;fireHit(s,owner,base,1); }
+  if(!s.endHitDone && elapsed>=clipTicks) { s.endHitDone=true;fireHit(s,owner,base,2); }
+ }
+ private void fireHit(Sequence s,Player owner,Vex base,int moment) {
+  World world=s.target.getWorld();
+  try {
+   if(moment==2) { spawnCrystal(s.target.clone().add(0,.5,0));plugin.sounds().play("crystal-pop",s.target,null);world.spawnParticle(Particle.EXPLOSION,s.target,1); }
+   world.spawnParticle(Particle.FLAME,s.target,8+moment*12,.5+moment*.25,.4,.5+moment*.25,.02);
+   world.spawnParticle(Particle.END_ROD,s.target,2+moment*2,.6,.4,.6,.01);
+   double x=plugin.settings().d("fire-attack.blast-radius.x"),y=plugin.settings().d("fire-attack.blast-radius.y"),z=plugin.settings().d("fire-attack.blast-radius.z");
+   if(base.getLocation().distanceSquared(s.target)<=4*4)
+    for(Entity e:world.getNearbyEntities(s.target,x,y,z)) if(e instanceof LivingEntity living) {
+     boolean hit=plugin.damage().damage(living,owner,plugin.settings().d(living instanceof Player?"fire-attack.player-damage":"fire-attack.mob-damage"),true);
+     if(hit && moment==2 && living instanceof Player player && !player.isDead()) plugin.launches().launch(player,s.token);
+    }
+  } finally { if(moment==2) removeCrystal(); }
  }
  private void levitate(Sequence s,Player owner) {
   for(UUID id:s.chain.hit()) {
@@ -177,6 +182,7 @@ public final class AttackCoordinator {
   }
  }
  private void startReturn(Sequence s,long tick) {
+  plugin.immunity().end(s.token);
   removeCrystal();plugin.models().endFire();plugin.animations().reset();s.phase=Phase.RETURN;s.phaseStart=tick;
   s.lastProgress=plugin.dragons().controller().getLocation();s.progressTick=tick;
  }
@@ -228,7 +234,7 @@ public final class AttackCoordinator {
     if(s.completed && !cancelled) gate.complete(plugin.dragons().data(),s.kind,s.token,true,System.currentTimeMillis(),(long)(plugin.settings().d("galaxy-attack.cooldown-seconds")*1000));
    } finally {
     sequence=null;gate.release(s.token);
-    try { plugin.immunity().end(); } finally { plugin.dragons().save(); }
+    try { if(s.phase!=Phase.RETURN) plugin.immunity().end(s.token); } finally { plugin.dragons().save(); }
    }
   }
  }

@@ -39,36 +39,37 @@ class AttackCoordinatorTest {
   attacks=new AttackCoordinator(plugin);
  }
  @Test void fullExecuteFourMomentsThenReturnAndOnlyThenCooldown() {
-  assertTrue(attacks.startAuto(enemy));verify(immunity).begin(owner);
-  attacks.tick(1);verify(animations,times(1)).attack("execute");
+  assertTrue(attacks.startAuto(enemy));verify(immunity,never()).begin(any(),any());
+  attacks.tick(1);verify(animations,times(1)).attack("execute");verify(immunity).begin(eq(owner),any());
   for(int tick=2;tick<=33;tick++) attacks.tick(tick);
   verify(damage,times(4)).damage(enemy,owner,20,false);assertEquals(0,data.autoAttackCooldownUntil);
   when(models.attackFinished(false)).thenReturn(false);
-  attacks.tick(50);assertTrue(attacks.busy());verify(immunity,never()).end();
-  when(models.attackFinished(false)).thenReturn(true);attacks.tick(51);assertTrue(attacks.busy());
+  attacks.tick(50);assertTrue(attacks.busy());verify(immunity,never()).end(any());
+  when(models.attackFinished(false)).thenReturn(true);attacks.tick(51);assertTrue(attacks.busy());verify(immunity).end(any());
   attacks.tick(52);assertFalse(attacks.busy());assertTrue(data.autoAttackCooldownUntil>System.currentTimeMillis());
-  verify(immunity).end();verify(animations,times(1)).attack("execute");
+  verify(immunity,times(1)).begin(eq(owner),any());verify(animations,times(1)).attack("execute");
  }
  @Test void deadOrProtectedTargetDoesNotCancelRemainingVisualStrikes() {
   assertTrue(attacks.startAuto(enemy));attacks.tick(1);attacks.tick(9);
   when(damage.allowed(eq(enemy),eq(owner),anyBoolean())).thenReturn(false);
   for(int tick=10;tick<=45;tick++) attacks.tick(tick);
   assertTrue(attacks.status().contains("strike=4"));verify(damage,times(1)).damage(enemy,owner,20,false);
-  attacks.tick(46);assertFalse(attacks.busy());verify(immunity).end();
+  attacks.tick(46);assertFalse(attacks.busy());verify(immunity).end(any());
  }
  @Test void cancelAlwaysReleasesImmunityAndAllowsAnotherAttack() {
   assertTrue(attacks.startAuto(enemy));attacks.tick(1);attacks.cancel();
-  verify(immunity).end();assertFalse(attacks.busy());assertEquals(0,data.autoAttackCooldownUntil);
+  verify(immunity).end(any());assertFalse(attacks.busy());assertEquals(0,data.autoAttackCooldownUntil);
   assertTrue(attacks.startManual(enemy));assertFalse(attacks.startAuto(enemy));attacks.cancel();
  }
- @Test void cannotStartWhenOwnerOfflineOrAnimationTimingInvalid() {
+ @Test void offlineOwnerCannotStartAndShortClipsStillGetFourMoments() {
   when(owner.isOnline()).thenReturn(false);assertFalse(attacks.startAuto(enemy));verifyNoInteractions(immunity);
   when(owner.isOnline()).thenReturn(true);when(models.attackTicks(false)).thenReturn(20);
-  assertThrows(IllegalStateException.class,()->attacks.startAuto(enemy));assertFalse(attacks.busy());
+  assertTrue(attacks.startAuto(enemy));for(int tick=1;tick<=20;tick++) attacks.tick(tick);
+  assertTrue(attacks.status().contains("strike=4"));verify(animations,times(1)).attack("execute");
  }
  @Test void ownerWorldChangeCancelsWithoutWaitingForAnimation() {
   assertTrue(attacks.startAuto(enemy));attacks.tick(1);when(owner.getWorld()).thenReturn(mock(World.class));attacks.tick(2);
-  assertFalse(attacks.busy());verify(immunity).end();
+  assertFalse(attacks.busy());verify(immunity).end(any());
  }
  @Test void survivingTargetReceivesLevitationOnceOnlyAfterFullAnimation() {
   Server server=mock(Server.class);when(plugin.getServer()).thenReturn(server);when(server.getEntity(enemy.getUniqueId())).thenReturn(enemy);
@@ -94,17 +95,22 @@ class AttackCoordinatorTest {
   data.manualAttackCooldownUntil=Long.MAX_VALUE;
   assertTrue(attacks.startManual(enemy));attacks.tick(1);verify(models).beginFire();
   for(int tick=2;tick<=20;tick++) attacks.tick(tick);
-  verify(damage,never()).damage(any(),any(),anyDouble(),anyBoolean());
-  attacks.tick(21);verify(damage).damage(enemy,owner,20,true);verify(damage).damage(victim,owner,14,true);
+  verify(damage,times(1)).damage(enemy,owner,8,true);verify(damage,times(1)).damage(victim,owner,4,true);
+  attacks.tick(21);verify(damage,times(2)).damage(enemy,owner,8,true);verify(damage,times(2)).damage(victim,owner,4,true);
+  attacks.tick(41);attacks.tick(42);verify(damage,times(3)).damage(enemy,owner,8,true);verify(damage,times(3)).damage(victim,owner,4,true);
   verify(crystal).setInvulnerable(true);verify(crystal).setPersistent(false);verify(crystal).setGravity(false);
-  attacks.tick(23);verify(crystal).remove();attacks.tick(45);attacks.tick(46);
+  verify(crystal).remove();attacks.tick(45);attacks.tick(46);
   assertFalse(attacks.busy());assertEquals(0,data.manualAttackCooldownUntil);assertTrue(attacks.startManual(enemy));
-  verify(immunity,never()).begin(any());
+  verify(immunity,never()).begin(any(),any());
  }
  @Test void stalledReturnUsesEmergencyPositionAndReleasesLock() {
   attacks.startAuto(enemy);attacks.tick(1);for(int t=2;t<=45;t++) attacks.tick(t);
   when(movement.toward(any(),any(),anyDouble(),anyDouble())).thenReturn(false);
   Location safe=new Location(world,0,64,3);when(movement.safeNear(owner)).thenReturn(safe);
-  attacks.tick(86);verify(movement).teleport(base,safe);assertFalse(attacks.busy());verify(immunity).end();
+  attacks.tick(86);verify(movement).teleport(base,safe);assertFalse(attacks.busy());verify(immunity).end(any());
+ }
+ @Test void failedExecuteNeverGrantsImmunityAndReleasesGate() {
+  when(animations.attack(anyString())).thenReturn(false);assertTrue(attacks.startAuto(enemy));attacks.tick(1);
+  verify(immunity,never()).begin(any(),any());assertFalse(attacks.busy());assertTrue(attacks.startAuto(enemy));
  }
 }

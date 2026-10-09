@@ -32,10 +32,10 @@ public final class DamageService implements Listener {
   int hurtTicks=target.getNoDamageTicks();
   try {
    // Eight-tick chain moments must still reach Bukkit's damage/protection pipeline.
-   if(!manual) target.setNoDamageTicks(0);
+   target.setNoDamageTicks(0);
    target.damage(amount,owner);return accepted;
   } finally {
-   if(!manual && !accepted) target.setNoDamageTicks(hurtTicks);
+   if(!accepted) target.setNoDamageTicks(hurtTicks);
    pending=null;source=null;
   }
  }

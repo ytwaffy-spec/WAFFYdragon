@@ -28,6 +28,7 @@ public final class BaByDragonsPlugin extends JavaPlugin {
  private DragonManager dragons;
  private AttackCoordinator attacks;
  private DragonImmunity immunity;
+ private FireLaunchProtection launches;
  private CombatSounds sounds;
  private DamageService damage;
  private DragonEffectController effects;
@@ -47,10 +48,10 @@ public final class BaByDragonsPlugin extends JavaPlugin {
    if(engine==null || !engine.isEnabled()) throw new IllegalStateException("ModelEngine is required and must be enabled first.");
    models=new ModelEngineController(this);animations=new DragonAnimationController(this);movement=new DragonMovementController(this);
    dragons=new DragonManager(this);damage=new DamageService(this);effects=new DragonEffectController(this);
-   immunity=new DragonImmunity(this);sounds=new CombatSounds(this);
+   immunity=new DragonImmunity(this);launches=new FireLaunchProtection(this);sounds=new CombatSounds(this);
    attacks=new AttackCoordinator(this);manual=new ManualFireAttackController(this);
    interactions=new DragonInteractionListener(this);gui=new DragonControlGUI(this);storageGui=new DragonStorageGUI(this);
-   for(Listener listener:List.of(damage,effects,manual,immunity,interactions,new AutoDefenseController(this),new InventoryListener(this),new LifecycleListener(this)))
+   for(Listener listener:List.of(damage,effects,manual,immunity,launches,interactions,new AutoDefenseController(this),new InventoryListener(this),new LifecycleListener(this)))
     getServer().getPluginManager().registerEvents(listener,this);
    models.registerInteractions(interactions,interactions::modelInteract);
    var normal=new DragonCommand(this);var admin=new DragonAdminCommand(this);
@@ -86,7 +87,7 @@ public final class BaByDragonsPlugin extends JavaPlugin {
   tasks.forEach(BukkitTask::cancel);tasks.clear();
   int period=settings.i("movement.update-ticks");
   tasks.add(getServer().getScheduler().runTaskTimer(this,()->{
-   tick+=period;try { manual.tick();dragons.tick(tick); } catch(RuntimeException e) { fail("Dragon update failed; stopping safely",e); }
+   tick+=period;try { launches.tick();manual.tick();dragons.tick(tick); } catch(RuntimeException e) { fail("Dragon update failed; stopping safely",e); }
   },1,period));
   tasks.add(getServer().getScheduler().runTaskTimer(this,()->{
    try { effects.tick(); } catch(RuntimeException e) { fail("Dragon effects failed; stopping safely",e); }
@@ -99,6 +100,7 @@ public final class BaByDragonsPlugin extends JavaPlugin {
   tasks.forEach(BukkitTask::cancel);tasks.clear();
   if(manual!=null) manual.clear();
   if(immunity!=null) immunity.end();
+  if(launches!=null) launches.clear();
   if(ready && dragons!=null) {
    try { dragons.shutdown(); } catch(Exception e) { getLogger().log(Level.SEVERE,"Shutdown cleanup failed",e); }
   }
@@ -109,6 +111,7 @@ public final class BaByDragonsPlugin extends JavaPlugin {
   // Validate new files before detaching an existing visual.
   Settings next=loadSettings();YamlConfiguration nextMessages=loadMessages();
   manual.clear();
+  launches.clear();
   attacks.cancel();effects.clearAll();
   if(dragons.controller()!=null && dragons.controller().isValid()) movement.stop(dragons.controller());
   models.detach();settings=next;messages=nextMessages;
@@ -168,6 +171,7 @@ public final class BaByDragonsPlugin extends JavaPlugin {
  public DragonMovementController movement() { return movement; }
  public AttackCoordinator attacks() { return attacks; }
  public DragonImmunity immunity() { return immunity; }
+ public FireLaunchProtection launches() { return launches; }
  public CombatSounds sounds() { return sounds; }
  public DamageService damage() { return damage; }
  public DragonEffectController effects() { return effects; }

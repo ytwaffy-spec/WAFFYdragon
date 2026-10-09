@@ -9,11 +9,13 @@ import org.bukkit.potion.PotionEffectType;
 public final class DragonImmunity implements Listener {
  private final BaByDragonsPlugin plugin;
  private UUID ownerId;
+ private UUID sequenceToken;
  public DragonImmunity(BaByDragonsPlugin plugin) { this.plugin=plugin; }
  public boolean active() { return ownerId!=null; }
- public void begin(Player owner) {
+ public void begin(Player owner,UUID token) {
+  if(token==null || token.equals(sequenceToken)) return;
   if(!plugin.settings().b("dragon-immunity.enabled")) return;
-  ownerId=owner.getUniqueId();
+  ownerId=owner.getUniqueId();sequenceToken=token;
   if(plugin.settings().b("dragon-immunity.remove-negative-effects"))
    for(String name:plugin.settings().strings("dragon-immunity.harmful-effects")) {
     PotionEffectType type=PotionEffectType.getByName(name);if(type!=null) owner.removePotionEffect(type);
@@ -24,10 +26,11 @@ public final class DragonImmunity implements Listener {
   }
  }
  public void end() {
-  UUID previous=ownerId;ownerId=null;
+  UUID previous=ownerId;ownerId=null;sequenceToken=null;
   Player owner=previous==null?null:plugin.getServer().getPlayer(previous);
   if(owner!=null && plugin.settings().b("dragon-immunity.notify-end")) owner.sendActionBar(Component.text("Dragon Immunity ended."));
  }
+ public void end(UUID token) { if(token!=null && token.equals(sequenceToken)) end(); }
  @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
  public void damage(EntityDamageByEntityEvent event) {
   if(ownerId==null || !event.getEntity().getUniqueId().equals(ownerId)) return;

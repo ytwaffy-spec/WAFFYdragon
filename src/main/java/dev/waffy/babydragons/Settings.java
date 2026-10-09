@@ -5,11 +5,12 @@ public final class Settings {
  private final FileConfiguration c;
  public Settings(FileConfiguration c) {
   this.c=c;
-  integer("config-version",2,2);
+  integer("config-version",3,3);
   number("movement.follow.distance",2.5,4);number("movement.teleport-distance",8,128);
   number("movement.follow.smooth-factor",.01,1);number("movement.follow.rotation-smooth-factor",.01,1);
   number("movement.follow.max-speed",.05,.65);number("movement.attack.max-speed",.1,1);
-  number("movement.unstuck-seconds",1,10);integer("movement.update-ticks",1,5);
+  number("movement.return.max-speed",.1,1);
+  number("movement.unstuck-seconds",1,10);integer("movement.update-ticks",1,1);
   number("movement.attack-stop-distance",1.5,2.5);
   number("movement.attack-timeout-seconds",5,120);number("movement.name-height",.1,32);
   integer("animations.pet-ticks",1,600);
@@ -22,13 +23,13 @@ public final class Settings {
   number("galaxy-attack.levitation-seconds",.1,30);integer("galaxy-attack.levitation-amplifier",0,4);
   integer("fire-attack.cooldown-seconds",0,0);number("fire-attack.target-range",1,100);
   integer("fire-attack.target-lock-grace-millis",0,2000);
-  number("fire-attack.player-damage",.1,14);number("fire-attack.mob-damage",.1,100);
+  number("fire-attack.player-damage",.1,4);number("fire-attack.mob-damage",.1,8);
   for(String axis:List.of("x","y","z")) number("fire-attack.blast-radius."+axis,.1,2);
   integer("fire-attack.animation.impact-delay-ticks",1,600);
   integer("fire-attack.required-slot",9,9);
   if(!s("fire-attack.required-item").equals("STICK")) throw new IllegalArgumentException("Fire requires STICK");
   for(String kind:List.of("galaxy-attack","fire-attack")) {
-   number(kind+".animation.speed",.1,3);
+   number(kind+".animation.speed",1,1);
    if(s(kind+".animation.id").isBlank()) throw new IllegalArgumentException(kind+" animation is required");
   }
   var times=c.getList("galaxy-attack.strike-ticks");
@@ -58,6 +59,12 @@ public final class Settings {
    if(!(c.get(flag) instanceof Boolean)) throw new IllegalArgumentException("Invalid boolean: "+flag);
  }
  public static void migrate(FileConfiguration c,FileConfiguration defaults) {
+  if(c.getInt("config-version",0)<3) {
+   c.set("movement.update-ticks",1);
+   c.set("movement.follow.max-speed",.40);c.set("movement.attack.max-speed",.90);
+   c.set("fire-attack.player-damage",4.0);c.set("fire-attack.mob-damage",8.0);
+   c.set("fire-attack.animation.speed",1.0);c.set("galaxy-attack.animation.speed",1.0);
+  }
   if(!c.contains("config-version",true)) {
    c.set("movement.update-ticks",1);
    copy(c,"movement.follow-distance","movement.follow.distance");
@@ -69,6 +76,7 @@ public final class Settings {
   }
   for(String key:defaults.getKeys(true))
    if(!defaults.isConfigurationSection(key) && !c.contains(key,true)) c.set(key,defaults.get(key));
+  c.set("config-version",3);
  }
  private static void copy(FileConfiguration c,String old,String next) {
   if(c.contains(old,true) && !c.contains(next,true)) c.set(next,c.get(old));

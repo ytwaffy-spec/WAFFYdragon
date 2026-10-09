@@ -7,7 +7,9 @@ public final class DragonMovementController {
  private final BaByDragonsPlugin plugin;
  private Location target;
  private long lastMovement;
- private double currentSpeed;
+ private Vector currentVelocity=new Vector();
+ private Location previousLocation;
+ private long progressTick;
  private float desiredYaw;
  private boolean followingMoving;
  public DragonMovementController(BaByDragonsPlugin plugin) { this.plugin=plugin; }
@@ -36,7 +38,7 @@ public final class DragonMovementController {
   return l.getY()>l.getWorld().getMinHeight() && l.getY()+2<l.getWorld().getMaxHeight()
     && l.getWorld().getWorldBorder().isInside(l) && l.getBlock().isPassable() && l.clone().add(0,1,0).getBlock().isPassable();
  }
- public void stop(Vex entity) { currentSpeed=0;followingMoving=false;entity.setVelocity(new Vector()); }
+ public void stop(Vex entity) { currentVelocity=new Vector();followingMoving=false;previousLocation=null;entity.setVelocity(new Vector()); }
  public static float smoothYaw(float current,float desired,double factor) {
   double gap=((desired-current+540)%360+360)%360-180;
   return (float)(current+gap*factor);
@@ -71,16 +73,17 @@ public final class DragonMovementController {
   if(!entity.getWorld().equals(destination.getWorld())) return false;
   Vector delta=destination.toVector().subtract(entity.getLocation().toVector());double distance=delta.length();
   if(distance<=stopDistance+.001) { stop(entity);return true; }
-  currentSpeed=smoothSpeed(currentSpeed,distance,stopDistance,speed,plugin.settings().d("movement.follow.smooth-factor"));
-  Vector step=step(delta,currentSpeed*plugin.settings().i("movement.update-ticks"),stopDistance);
-  Location next=entity.getLocation().add(step);
-  if(delta.getX()*delta.getX()+delta.getZ()*delta.getZ()>.001)
-   desiredYaw=(float)Math.toDegrees(Math.atan2(-delta.getX(),delta.getZ()));
-  next.setYaw(smoothYaw(next.getYaw(),desiredYaw,plugin.settings().d("movement.follow.rotation-smooth-factor")));
-  next.setPitch(0);plugin.dragons().holdChunk(next);entity.setVelocity(new Vector());
-  if(!entity.teleport(next)) return false;
-  lastMovement=System.currentTimeMillis();
-  return entity.getLocation().distance(destination)<=stopDistance+1e-7;
+  double factor=plugin.settings().d("movement.follow.smooth-factor");
+  Vector desired=step(delta,Math.min(speed,(distance-stopDistance)*factor),stopDistance);
+  currentVelocity.multiply(1-factor).add(desired.multiply(factor));
+  double cap=Math.min(speed,distance-stopDistance);
+  if(currentVelocity.length()>cap) currentVelocity.normalize().multiply(cap);
+  Location current=entity.getLocation();
+  if(previousLocation==null || !previousLocation.getWorld().equals(current.getWorld()) || previousLocation.distanceSquared(current)>.0025) {
+   previousLocation=current.clone();progressTick=plugin.tick();lastMovement=System.currentTimeMillis();
+  }
+  entity.setVelocity(currentVelocity.clone());
+  return false;
  }
  public void face(Vex entity,Location target) {
   Vector delta=target.toVector().subtract(entity.getLocation().toVector());
@@ -100,7 +103,8 @@ public final class DragonMovementController {
   }
   boolean moving=!toward(entity,destination,plugin.settings().d("movement.follow.max-speed"),distance);
   followingMoving=moving;
-  if(!moving) face(entity,owner.getEyeLocation());
+  face(entity,owner.getEyeLocation());
+  if(moving && plugin.tick()-progressTick>=plugin.settings().d("movement.unstuck-seconds")*20) teleport(entity,safeNear(owner));
   return moving;
  }
  public void teleport(Vex entity,Location target) {

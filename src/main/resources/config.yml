@@ -1,4 +1,4 @@
-config-version: 2
+config-version: 3
 # Owner-supplied IDs, validated against the installed ModelEngine registry.
 models:
   galaxy:
@@ -17,9 +17,11 @@ movement:
   follow:
     distance: 3.0
     smooth-factor: 0.20
-    max-speed: 0.35
+    max-speed: 0.40
     rotation-smooth-factor: 0.20
   attack:
+    max-speed: 0.90
+  return:
     max-speed: 0.65
   attack-stop-distance: 2.0
   update-ticks: 1
@@ -51,12 +53,12 @@ fire-attack:
   target-range: 100
   target-lock-grace-millis: 700
   cooldown-seconds: 0
-  player-damage: 14.0
-  mob-damage: 20.0
+  player-damage: 4.0
+  mob-damage: 8.0
   blast-radius: {x: 2.0, y: 2.0, z: 2.0}
   animation:
     id: execute
-    speed: 0.75
+    speed: 1.0
     impact-delay-ticks: 20
   required-item: STICK
   required-slot: 9

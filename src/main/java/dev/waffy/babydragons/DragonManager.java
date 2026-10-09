@@ -62,7 +62,9 @@ public final class DragonManager {
   }
  }
  private void configure(Vex e) {
-  e.setAI(false);e.setInvisible(true);e.setSilent(true);e.setInvulnerable(true);e.setCollidable(false);
+  // Vex travel physics requires AI ticking; removing all goals prevents vanilla wandering/attacks.
+  e.setAI(true);plugin.getServer().getMobGoals().removeAllGoals(e);
+  e.setInvisible(true);e.setSilent(true);e.setInvulnerable(true);e.setCollidable(false);
   e.setGravity(false);e.setRemoveWhenFarAway(false);e.setLimitedLifetime(false);e.setCanPickupItems(false);
  }
  public void recover() {
