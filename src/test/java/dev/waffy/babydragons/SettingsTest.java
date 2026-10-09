@@ -3,6 +3,13 @@ import java.io.InputStreamReader;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;import static org.junit.jupiter.api.Assertions.*;
 class SettingsTest {
+ @Test void priorPatchMigratesResponsiveMovementAndRemovesImmunity() throws Exception {
+  var config=defaults();config.set("config-version",3);config.set("dragon-immunity.enabled",true);
+  config.set("movement.follow.max-speed",.4);config.set("fire-attack.blast-radius.x",2.0);
+  Settings.migrate(config,defaults());new Settings(config);
+  assertEquals(.48,config.getDouble("movement.follow.max-speed"));
+  assertEquals(3.5,config.getDouble("fire-attack.blast-radius.x"));assertFalse(config.contains("dragon-immunity"));
+ }
  YamlConfiguration defaults() throws Exception {
   try(var reader=new InputStreamReader(getClass().getResourceAsStream("/config.yml"),java.nio.charset.StandardCharsets.UTF_8)) {
    var yaml=new YamlConfiguration();yaml.load(reader);return yaml;

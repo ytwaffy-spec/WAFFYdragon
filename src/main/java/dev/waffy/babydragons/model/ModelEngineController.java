@@ -18,6 +18,8 @@ public final class ModelEngineController {
  private final Method eventPlayer,eventBase,eventAction,eventSlot,baseId;
  private final Class<? extends Event> interactionClass;
  private Object modeled,galaxy,fire;
+ private Object fireModeled;
+ private Vex fireAnchor;
  private UUID controllerId;
  private String fireId;
  private boolean baseReady,fireReady;
@@ -77,6 +79,7 @@ public final class ModelEngineController {
  }
  public boolean baseReady() { return baseReady; }
  public boolean fireReady() { return fireReady; }
+ public boolean isFireAnchor(Entity entity) { return fireAnchor!=null && fireAnchor.getUniqueId().equals(entity.getUniqueId()); }
  @SuppressWarnings("unchecked")
  public void attach(Entity entity) {
   if(!baseReady) throw new IllegalStateException("Galaxy blueprint/animations unavailable; see console.");
@@ -104,12 +107,17 @@ public final class ModelEngineController {
  }
  public boolean isGalaxyPlaying(String clip) { return galaxy!=null && Boolean.TRUE.equals(call(isPlaying,call(animationHandler,galaxy),clip)); }
  public void stopGalaxy() { if(galaxy!=null) call(stop,call(animationHandler,galaxy)); }
- public boolean beginFire() {
+ public boolean beginFire(org.bukkit.Location center) {
   if(!fireReady || modeled==null) return false;
   endFire();fireId=plugin.settings().s("models.fire.id");fire=call(active,null,fireId);
   if(fire==null) return false;
+  fireAnchor=center.getWorld().spawn(center,Vex.class,e->{
+   plugin.dragons().mark(e,"fire-anchor");e.setAI(false);e.setGravity(false);e.setCollidable(false);
+   e.setInvisible(true);e.setInvulnerable(true);e.setSilent(true);e.setPersistent(false);e.setLimitedLifetime(false);
+  });
+  fireModeled=call(create,null,fireAnchor);call(visible,fireModeled,false);call(saved,fireModeled,false);
   call(autoRenderer,fire,true);
-  call(add,modeled,fire,false); // Secondary overlay; Galaxy retains main hitbox.
+  call(add,fireModeled,fire,true);
   Object handler=call(animationHandler,fire);call(stop,handler);
   String clip=plugin.settings().s("fire-attack.animation.id");
   fireAttack=call(play,handler,clip,0.0,.15,plugin.settings().d("fire-attack.animation.speed"),true);
@@ -153,9 +161,13 @@ public final class ModelEngineController {
   });
  }
  public void endFire() {
-  if(fire!=null && modeled!=null) {
-   try { removeActive(fireId); }
-   finally { fire=null;fireId=null;fireAttack=null; }
+  try { if(fireModeled!=null) call(destroy,fireModeled);else if(fire!=null) call(activeDestroy,fire); }
+  finally {
+   try { if(fireAnchor!=null) call(remove,null,fireAnchor.getUniqueId()); }
+   finally {
+    if(fireAnchor!=null) fireAnchor.remove();
+    fireAnchor=null;fireModeled=null;fire=null;fireId=null;fireAttack=null;
+   }
   }
  }
  public void detach() {

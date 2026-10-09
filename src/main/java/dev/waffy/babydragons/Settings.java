@@ -5,9 +5,11 @@ public final class Settings {
  private final FileConfiguration c;
  public Settings(FileConfiguration c) {
   this.c=c;
-  integer("config-version",3,3);
+  integer("config-version",4,4);
   number("movement.follow.distance",2.5,4);number("movement.teleport-distance",8,128);
-  number("movement.follow.smooth-factor",.01,1);number("movement.follow.rotation-smooth-factor",.01,1);
+  for(String mode:List.of("follow","attack","return")) number("movement."+mode+".acceleration",.01,1);
+  number("movement.follow.braking-distance",.1,10);
+  number("movement.rotation.follow-factor",.01,1);number("movement.rotation.attack-factor",.01,1);number("movement.rotation.deadzone-degrees",0,5);
   number("movement.follow.max-speed",.05,.65);number("movement.attack.max-speed",.1,1);
   number("movement.return.max-speed",.1,1);
   number("movement.unstuck-seconds",1,10);integer("movement.update-ticks",1,1);
@@ -24,8 +26,7 @@ public final class Settings {
   integer("fire-attack.cooldown-seconds",0,0);number("fire-attack.target-range",1,100);
   integer("fire-attack.target-lock-grace-millis",0,2000);
   number("fire-attack.player-damage",.1,4);number("fire-attack.mob-damage",.1,8);
-  for(String axis:List.of("x","y","z")) number("fire-attack.blast-radius."+axis,.1,2);
-  integer("fire-attack.animation.impact-delay-ticks",1,600);
+  for(String axis:List.of("x","y","z")) number("fire-attack.blast-radius."+axis,3.5,3.5);
   integer("fire-attack.required-slot",9,9);
   if(!s("fire-attack.required-item").equals("STICK")) throw new IllegalArgumentException("Fire requires STICK");
   for(String kind:List.of("galaxy-attack","fire-attack")) {
@@ -45,17 +46,12 @@ public final class Settings {
   for(String p:Set.of("models.galaxy.id","models.fire.id","animations.idle","animations.follow","animations.pet"))
    if(s(p).isBlank()) throw new IllegalArgumentException(p+" is required");
   if(s("models.galaxy.id").equals(s("models.fire.id"))) throw new IllegalArgumentException("Model IDs must be distinct");
-  for(String key:List.of("galaxy-execute-start","galaxy-strike","fire-lock","fire-execute","crystal-pop")) {
+  for(String key:List.of("galaxy-execute-start","galaxy-strike","fire-lock","fire-execute","fire-blast")) {
    if(!(c.get("sounds."+key+".enabled") instanceof Boolean)) throw new IllegalArgumentException("Invalid sound toggle: "+key);
    number("sounds."+key+".volume",0,2);number("sounds."+key+".pitch",.5,2);
    if(!s("sounds."+key+".sound").matches("[A-Z0-9_]+")) throw new IllegalArgumentException("Invalid sound: "+key);
   }
-  if(!(c.get("dragon-immunity.harmful-effects") instanceof List<?>)) throw new IllegalArgumentException("Harmful effects must be a list");
-  for(String effect:strings("dragon-immunity.harmful-effects"))
-   if(!Set.of("POISON","WITHER","WEAKNESS","SLOWNESS","MINING_FATIGUE","BLINDNESS","DARKNESS","HUNGER","NAUSEA","LEVITATION","BAD_OMEN","UNLUCK").contains(effect))
-    throw new IllegalArgumentException("Unsupported harmful effect: "+effect);
-  for(String flag:List.of("galaxy-attack.assist-enabled-by-default","galaxy-attack.defense-enabled-by-default","fire-attack.enabled-by-default",
-   "dragon-immunity.enabled","dragon-immunity.remove-negative-effects","dragon-immunity.notify-chat","dragon-immunity.notify-end"))
+  for(String flag:List.of("galaxy-attack.assist-enabled-by-default","galaxy-attack.defense-enabled-by-default","fire-attack.enabled-by-default"))
    if(!(c.get(flag) instanceof Boolean)) throw new IllegalArgumentException("Invalid boolean: "+flag);
  }
  public static void migrate(FileConfiguration c,FileConfiguration defaults) {
@@ -76,7 +72,14 @@ public final class Settings {
   }
   for(String key:defaults.getKeys(true))
    if(!defaults.isConfigurationSection(key) && !c.contains(key,true)) c.set(key,defaults.get(key));
-  c.set("config-version",3);
+  if(c.getInt("config-version",0)<4) {
+   c.set("movement.follow.max-speed",.48);c.set("movement.attack.max-speed",1.0);c.set("movement.return.max-speed",.75);
+   for(String axis:List.of("x","y","z")) c.set("fire-attack.blast-radius."+axis,3.5);
+  }
+  c.set("movement.update-ticks",1);c.set("dragon-immunity",null);
+  c.set("movement.follow.smooth-factor",null);c.set("movement.follow.rotation-smooth-factor",null);
+  c.set("fire-attack.animation.impact-delay-ticks",null);c.set("sounds.crystal-pop",null);
+  c.set("config-version",4);
  }
  private static void copy(FileConfiguration c,String old,String next) {
   if(c.contains(old,true) && !c.contains(next,true)) c.set(next,c.get(old));

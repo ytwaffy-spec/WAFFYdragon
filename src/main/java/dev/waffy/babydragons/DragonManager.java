@@ -35,7 +35,7 @@ public final class DragonManager {
  }
  public String tag(Entity entity,String field) { return entity.getPersistentDataContainer().get(plugin.key(field),PersistentDataType.STRING); }
  public boolean managed(Entity entity) {
-  return tag(entity,"dragon_id")!=null && Set.of("controller","name","crystal").contains(Objects.toString(tag(entity,"role"),""));
+  return tag(entity,"dragon_id")!=null && Set.of("controller","name","crystal","fire-anchor").contains(Objects.toString(tag(entity,"role"),""));
  }
  public void spawnOrRecover(Player player) {
   if(!plugin.models().baseReady()) throw new IllegalStateException("Galaxy model unavailable; check console and /dragonadmin reload.");
@@ -98,7 +98,7 @@ public final class DragonManager {
  }
  public void cleanLoaded(Entity e) {
   if(recovering || !managed(e)) return;
-  if(plugin.attacks()!=null && plugin.attacks().isCrystal(e)) return;
+  if(plugin.models()!=null && plugin.models().isFireAnchor(e)) return;
   if("crystal".equals(tag(e,"role"))) { e.remove();return; }
   if(data!=null && controller==null) return;
   if(data!=null && (e.getUniqueId().equals(data.controllerEntityUuid)||e.getUniqueId().equals(data.nameEntityUuid))) return;

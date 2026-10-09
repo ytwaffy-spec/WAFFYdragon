@@ -28,9 +28,18 @@ public final class DamageService implements Listener {
   if(!allowed(target,owner,manual)) return false;
   // Reject nested damage contexts rather than corrupting acceptance tracking.
   if(pending!=null) return false;
+  AttackCoordinator attacks=plugin.attacks();
+  java.util.UUID token=attacks==null?null:attacks.token();
   pending=target;source=owner;accepted=false;
   int hurtTicks=target.getNoDamageTicks();
   try {
+   if(target instanceof Player player) {
+    // Protection plugins receive one cancellable event; no second Bukkit damage pulse follows.
+    var event=new EntityDamageByEntityEvent(owner,player,org.bukkit.event.entity.EntityDamageEvent.DamageCause.ENTITY_ATTACK,4.0);
+    plugin.getServer().getPluginManager().callEvent(event);
+    if(event.isCancelled() || event.getDamage()<=0 || !allowed(player,owner,manual) || (token!=null && !attacks.active(token))) return false;
+    player.setLastDamageCause(event);player.setHealth(Math.max(0,player.getHealth()-4.0));accepted=true;return true;
+   }
    // Eight-tick chain moments must still reach Bukkit's damage/protection pipeline.
    target.setNoDamageTicks(0);
    target.damage(amount,owner);return accepted;

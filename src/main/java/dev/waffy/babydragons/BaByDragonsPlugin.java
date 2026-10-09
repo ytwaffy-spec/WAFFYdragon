@@ -27,7 +27,6 @@ public final class BaByDragonsPlugin extends JavaPlugin {
  private DragonMovementController movement;
  private DragonManager dragons;
  private AttackCoordinator attacks;
- private DragonImmunity immunity;
  private FireLaunchProtection launches;
  private CombatSounds sounds;
  private DamageService damage;
@@ -48,10 +47,10 @@ public final class BaByDragonsPlugin extends JavaPlugin {
    if(engine==null || !engine.isEnabled()) throw new IllegalStateException("ModelEngine is required and must be enabled first.");
    models=new ModelEngineController(this);animations=new DragonAnimationController(this);movement=new DragonMovementController(this);
    dragons=new DragonManager(this);damage=new DamageService(this);effects=new DragonEffectController(this);
-   immunity=new DragonImmunity(this);launches=new FireLaunchProtection(this);sounds=new CombatSounds(this);
+   launches=new FireLaunchProtection(this);sounds=new CombatSounds(this);
    attacks=new AttackCoordinator(this);manual=new ManualFireAttackController(this);
    interactions=new DragonInteractionListener(this);gui=new DragonControlGUI(this);storageGui=new DragonStorageGUI(this);
-   for(Listener listener:List.of(damage,effects,manual,immunity,launches,interactions,new AutoDefenseController(this),new InventoryListener(this),new LifecycleListener(this)))
+   for(Listener listener:List.of(damage,effects,manual,launches,interactions,new AutoDefenseController(this),new InventoryListener(this),new LifecycleListener(this)))
     getServer().getPluginManager().registerEvents(listener,this);
    models.registerInteractions(interactions,interactions::modelInteract);
    var normal=new DragonCommand(this);var admin=new DragonAdminCommand(this);
@@ -72,7 +71,7 @@ public final class BaByDragonsPlugin extends JavaPlugin {
   var defaults=new YamlConfiguration();
   try(var reader=new java.io.InputStreamReader(Objects.requireNonNull(getResource("config.yml")),java.nio.charset.StandardCharsets.UTF_8)) { defaults.load(reader); }
   String before=config.saveToString();Settings.migrate(config,defaults);Settings result=new Settings(config);
-  for(String key:List.of("galaxy-execute-start","galaxy-strike","fire-lock","fire-execute","crystal-pop")) Sound.valueOf(result.s("sounds."+key+".sound"));
+  for(String key:List.of("galaxy-execute-start","galaxy-strike","fire-lock","fire-execute","fire-blast")) Sound.valueOf(result.s("sounds."+key+".sound"));
   if(!before.equals(config.saveToString())) {
    java.nio.file.Path backup=file.toPath().resolveSibling("config.before-1.67.A.yml");
    if(!java.nio.file.Files.exists(backup)) java.nio.file.Files.copy(file.toPath(),backup);
@@ -99,7 +98,6 @@ public final class BaByDragonsPlugin extends JavaPlugin {
  @Override public void onDisable() {
   tasks.forEach(BukkitTask::cancel);tasks.clear();
   if(manual!=null) manual.clear();
-  if(immunity!=null) immunity.end();
   if(launches!=null) launches.clear();
   if(ready && dragons!=null) {
    try { dragons.shutdown(); } catch(Exception e) { getLogger().log(Level.SEVERE,"Shutdown cleanup failed",e); }
@@ -153,7 +151,6 @@ public final class BaByDragonsPlugin extends JavaPlugin {
   sender.sendMessage("State: "+d.state+(attacks.busy()?" (ATTACKING)":"")+" | Effects: "+d.effectsEnabled);
   sender.sendMessage("Assist: "+d.assistAttackEnabled+" | Defense: "+d.defenseAttackEnabled+" | Galaxy cooldown: "+AttackGate.remainingSeconds(d.autoAttackCooldownUntil,System.currentTimeMillis())+"s");
   sender.sendMessage("Fire: "+d.manualAttackEnabled+" | cooldown: None - Phase 1 | "+manual.status());
-  sender.sendMessage("Dragon Immunity active: "+immunity.active());
   sender.sendMessage("Location: "+d.location);
   var base=dragons.controller();
   if(base!=null) {
@@ -170,7 +167,6 @@ public final class BaByDragonsPlugin extends JavaPlugin {
  public DragonAnimationController animations() { return animations; }
  public DragonMovementController movement() { return movement; }
  public AttackCoordinator attacks() { return attacks; }
- public DragonImmunity immunity() { return immunity; }
  public FireLaunchProtection launches() { return launches; }
  public CombatSounds sounds() { return sounds; }
  public DamageService damage() { return damage; }

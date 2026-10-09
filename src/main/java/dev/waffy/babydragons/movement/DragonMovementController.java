@@ -69,12 +69,16 @@ public final class DragonMovementController {
   throw new IllegalStateException("No safe ground below dragon; summon it near solid ground first.");
  }
  public boolean toward(Vex entity,Location destination,double speed,double stopDistance) {
+  return toward(entity,destination,speed,stopDistance,"attack");
+ }
+ public boolean toward(Vex entity,Location destination,double speed,double stopDistance,String mode) {
   target=destination.clone();
   if(!entity.getWorld().equals(destination.getWorld())) return false;
   Vector delta=destination.toVector().subtract(entity.getLocation().toVector());double distance=delta.length();
   if(distance<=stopDistance+.001) { stop(entity);return true; }
-  double factor=plugin.settings().d("movement.follow.smooth-factor");
-  Vector desired=step(delta,Math.min(speed,(distance-stopDistance)*factor),stopDistance);
+  double factor=plugin.settings().d("movement."+mode+".acceleration");
+  double braking=mode.equals("follow")?plugin.settings().d("movement.follow.braking-distance"):1.5;
+  Vector desired=step(delta,speed*Math.min(1,(distance-stopDistance)/braking),stopDistance);
   currentVelocity.multiply(1-factor).add(desired.multiply(factor));
   double cap=Math.min(speed,distance-stopDistance);
   if(currentVelocity.length()>cap) currentVelocity.normalize().multiply(cap);
@@ -86,24 +90,29 @@ public final class DragonMovementController {
   return false;
  }
  public void face(Vex entity,Location target) {
+  face(entity,target,true);
+ }
+ public void face(Vex entity,Location target,boolean attacking) {
   Vector delta=target.toVector().subtract(entity.getLocation().toVector());
   if(delta.getX()*delta.getX()+delta.getZ()*delta.getZ()<.001) return;
   desiredYaw=(float)Math.toDegrees(Math.atan2(-delta.getX(),delta.getZ()));
-  entity.setRotation(smoothYaw(entity.getLocation().getYaw(),desiredYaw,plugin.settings().d("movement.follow.rotation-smooth-factor")),0);
+  float current=entity.getLocation().getYaw();
+  if(Math.abs(smoothYaw(current,desiredYaw,1)-current)<=plugin.settings().d("movement.rotation.deadzone-degrees")) return;
+  entity.setRotation(smoothYaw(current,desiredYaw,plugin.settings().d(attacking?"movement.rotation.attack-factor":"movement.rotation.follow-factor")),0);
  }
  public boolean follow(Vex entity,Player owner) {
   double far=plugin.settings().d("movement.teleport-distance");
   if(!entity.getWorld().equals(owner.getWorld()) || entity.getLocation().distanceSquared(owner.getLocation())>far*far) {
    teleport(entity,safeNear(owner));return true;
   }
-  Location destination=owner.getLocation().add(0,.2,0);
+  Location destination=owner.getLocation().add(0,.2,0).add(owner.getVelocity().clone().multiply(1.5));
   double distance=plugin.settings().d("movement.follow.distance");
   if(!followingMoving && entity.getLocation().distanceSquared(destination)<=(distance+.15)*(distance+.15)) {
-   target=destination;stop(entity);face(entity,owner.getEyeLocation());return false;
+   target=destination;stop(entity);face(entity,owner.getEyeLocation(),false);return false;
   }
-  boolean moving=!toward(entity,destination,plugin.settings().d("movement.follow.max-speed"),distance);
+  boolean moving=!toward(entity,destination,plugin.settings().d("movement.follow.max-speed"),distance,"follow");
   followingMoving=moving;
-  face(entity,owner.getEyeLocation());
+  face(entity,owner.getEyeLocation(),false);
   if(moving && plugin.tick()-progressTick>=plugin.settings().d("movement.unstuck-seconds")*20) teleport(entity,safeNear(owner));
   return moving;
  }

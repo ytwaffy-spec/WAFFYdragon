@@ -22,6 +22,7 @@ class MovementControllerTest {
    double now=position.get().distance(target);assertTrue(now<=previous+1e-9);assertTrue(before.distance(position.get())<=.35+1e-9);previous=now;
   }
   assertTrue(previous>=3-1e-9 && previous<=3.001+1e-9,"Arrival distance: "+previous);
+  when(owner.getVelocity()).thenReturn(new org.bukkit.util.Vector());
   when(owner.getWorld()).thenReturn(world);when(owner.getLocation()).thenAnswer(i->position.get().clone().add(1,0,0));
   when(owner.getEyeLocation()).thenAnswer(i->position.get().clone().add(1,1,0));
   for(int i=0;i<20;i++) assertFalse(controller.follow(base,owner));
