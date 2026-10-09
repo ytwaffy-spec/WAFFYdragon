@@ -1,6 +1,6 @@
 plugins { java }
 group = "dev.waffy.babydragons"
-version = "0.67.A"
+version = "1.67.A"
 repositories { mavenCentral(); maven("https://repo.papermc.io/repository/maven-public/") }
 java { toolchain.languageVersion.set(JavaLanguageVersion.of(25)) }
 dependencies {
@@ -17,12 +17,15 @@ dependencies {
     testImplementation("com.google.code.gson:gson:2.14.0")
     testImplementation(platform("org.junit:junit-bom:6.0.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.mockito:mockito-core:5.23.0")
+    testImplementation("org.joml:joml:1.10.9")
+    testImplementation("net.md-5:bungeecord-chat:1.21-R0.1")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 tasks.withType<JavaCompile>().configureEach { options.release.set(25); options.encoding = "UTF-8" }
 tasks.test { useJUnitPlatform() }
 tasks.jar {
-    archiveFileName.set("BaByDragons 0.67.A.jar")
+    archiveFileName.set("BaByDragons 1.67.A.jar")
     isPreserveFileTimestamps = false
     isReproducibleFileOrder = true
 }

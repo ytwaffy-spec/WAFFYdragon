@@ -1,39 +1,61 @@
-# BaByDragons 0.67.A verification
+# BaByDragons 1.67.A Verification
 
-This report applies to the reconstructed build, not the lost earlier cloud artifact.
+Local Java 25 `clean build`: **passed, 44 tests, zero failures/errors**.
+JAR metadata and absence of purchased assets/bundled server APIs/tests were checked.
+SHA-256 is recorded beside the packaged JAR in `downloads/`.
 
-## Executed
+## Automated Coverage
 
-- Java 25 compilation with Gradle 9.3.1 against unmodified official Paper 26.3 API source.
-- **19 JUnit tests**, covering name/color validation and injection rejection; shared attack locking; independent toggles/cooldowns and exact expiry; failed/cancelled attacks; stale callbacks; YAML round trips for every persisted field; corrupt data preservation; invalid seat/cooldown/toggle/coordinate rejection; deletion; effect-ownership matching; manual input matrix; valid packaged settings and unsafe configuration rejection.
-- ModelEngine public API signatures reviewed against the author's published ModelEngine 4 JavaDocs.
-- Source inspection of GUI cancellation, crystal ignition/explosion guards, ownership, lifecycle cleanup and PDC recovery.
-- JAR filename, required dependency metadata, entrypoint, Java 25 class version and absence of bundled APIs/purchased assets checked.
-- Published JAR verified against a fresh Git checkout by SHA-256.
+Run `./gradlew clean build` with Java 25. Test reports are in
+`build/reports/tests/test/` and `build/test-results/test/`.
 
-JUnit reports: `build/reports/tests/test/index.html`, `build/test-results/test/`. Source inspection is not runtime validation.
+- Movement step bounds, acceleration/deceleration, vertical progress, arrival,
+  shortest-arc rotation and owner-facing without resting teleports.
+- Galaxy target selection with one through six targets, four visual moments,
+  lost/dead/protected targets, exactly one execute start, playback completion gate,
+  delayed cooldown, survivor-only Levitation applied once, and cancellation cleanup.
+- Fire entity-lock range, grace expiry/reacquisition, one lock sound per change,
+  owned glow cleanup and preservation of foreign replacement glow.
+- Slot-9 stick/sneak/right-click input; no AIR; no Fire cooldown despite legacy timestamps.
+- Fire impact delay, 2-block box extents, player/mob damage parameters,
+  temporary invulnerable nonpersistent crystal and cleanup.
+- Independent assist/defense combinations and dragon-damage recursion guard.
+- Immunity message, combat cancellation, negative cleanse, positive preservation and end.
+- Return watchdog, owner world change and cancellation releasing the shared lock.
+- Config limits, timeline validation and migration; schema-1 toggle migration to
+  independent schema-2 fields; identity/seat/name/cooldown persistence and corrupt-file preservation.
+- Existing naming, effect lease, shared attack gate and input regression tests.
 
-## Not executed
+Controller tests use Mockito against the actual Paper API. Registry doubles exist
+only under `src/test`; neither they nor Paper/ModelEngine binaries are bundled.
+These tests do not constitute a live Paper or ModelEngine test.
 
-No real Paper/ModelEngine server or Minecraft client ran. Paper's download hosts are blocked in this environment, and the proprietary ModelEngine JAR/blueprints are absent. No claim of live compatibility, working visuals or exception-free server startup is made.
+The adapter was checked against the author's [ModelEngine animation property API](https://ticxo.github.io/Model-Engine-4.0-JavaDocs/com/ticxo/modelengine/api/animation/property/IAnimationProperty.html)
+and [blueprint animation API](https://ticxo.github.io/Model-Engine-4.0-JavaDocs/com/ticxo/modelengine/api/animation/BlueprintAnimation.html).
 
-## Pending live acceptance
+## Required Live Acceptance
 
-1. **Dependencies:** Without ModelEngine, Paper refuses the required dependency. With the installed engine, inspect version/API linkage and both IDs/animations. Wrong IDs log clear errors; correction and plugin reload recover.
-2. **Identity:** Spawn twice, retaining one Vex/name/Galaxy model. Verify owner UUID and normal/non-owner/admin permission checks.
-3. **Clicks:** Main-hand empty right-click opens control; sneak-right-click pets without GUI/attack; off-hand does not double-trigger.
-4. **Inventory safety:** In both menus test top/bottom shift transfer, number keys, off-hand swap, collect, drag, drop, creative clone and rapid clicks. No GUI items can leave and no items can be stored.
-5. **Names:** Named/hex/alias colors, Unicode and spaces render. Invalid/overlong/injected names or colors leave existing data intact.
-6. **Movement:** Walk/sprint/turn/stop, sit, follow, summon, long-distance and cross-world following. Check default-size rendering, name offset and exact seat/yaw retention.
-7. **Effects:** Strength II/Haste II/Absorption while following/enabled; sit/off/logout cleanup. Test beacon, stronger/same-level longer potion and other plugins. Spent absorption does not refill on refresh.
-8. **Auto triggers:** Player, living mob and projectile shooter trigger; environment/self/cancelled/zero damage does not. Toggle independently from manual.
-9. **Auto strike:** Approach, face, Galaxy execute, accepted damage 6 before reductions, 5-second Levitation I, breath radius 2.5. PvP/protection cancellation is respected. Only successful damage starts 30 seconds.
-10. **Manual controls:** Wrong slot/item, nonowner, no permission/sneak, left/off-hand click or disabled toggle do nothing. Ninth slot + sneak + empty/stick + right-click hits blocks up to 64. Sky produces feedback only.
-11. **Manual strike:** Approach, secondary Fire execute overlay, short invulnerable crystal, removal/pop, radius-2.5 custom damage 8 to eligible enemies. Galaxy remains the base. Empty-area visual strike consumes only manual cooldown.
-12. **Terrain:** Strike near fragile blocks and in the End. No blocks change, ignite or explode. External damage/explosions cannot detonate tagged crystals.
-13. **Lock/interruption:** Simultaneous attack attempts serialize. Return to following or exact saved seat. Interrupt every phase with logout/death/world change/removal/reload/disable/timeout/invalid target; no Fire model/crystal/lock remains.
-14. **Restart:** Record IDs/name/color/state/seat/toggles/cooldowns. Restart in each state and during attacks. One canonical dragon returns; transient attacks do not resume. Missing parts rebuild; stale duplicates in later-loaded chunks are removed.
-15. **Faults:** On a backup, corrupt YAML/schema/UUID/state/seat/toggle/timestamp and remove saved world. Recovery must stop without replacing invalid data. Restore originals.
-16. **Admin/config:** Test all commands and mapped clips/tab completion. Remove/restart/reload old chunks: no old dragon returns. Invalid config reports cleanly. Monitor console for runtime errors throughout.
+No live Paper + ModelEngine + Minecraft client is available in this workspace.
+Verify on a backed-up server with ModelEngine 4.1.1 and your licensed models:
 
-Use this plugin's config reload or a full server restart, not Bukkit `/reload`.
+1. Confirm blueprint IDs, default model scale, textures, name and recovery after restart.
+2. Walk, sprint, turn and pause; confirm smooth travel, owner-facing and 3-block spacing.
+3. Sit, attack and return; verify grounded static pose and exact saved seat/yaw.
+4. Use `/dragonadmin animationstatus` during execute; verify the full clip renders once.
+   Tune the four Galaxy timing points and Fire impact delay against the actual clips.
+5. Test one, two, three, four and more targets; kill, teleport or protect a target
+   midway. Expect all four visual moments and no lingering immunity or busy state.
+6. Check armor/resistance, protection-plugin cancellations, friendly-fire teams,
+   PvP disabled, pets and spectators. Check Levitation only on surviving hit entities.
+7. Acquire Fire locks near 100 blocks, behind walls and at range boundaries; slip
+   aim briefly, switch slots/items, disable Fire, logout and reload. Check glow cleanup.
+8. Confirm stick + slot 9 + sneak + right-click, Fire overlay at 0.75 speed,
+   moving-target accuracy, crystal timing, particles and configurable sounds.
+9. Test crystal damage, explosions and ignition in the End; terrain must remain intact.
+10. Interrupt approach, execute and return with logout/death/world change/removal/reload.
+    Confirm safe recovery, no residual Fire model/crystal/glow, and immunity cleared.
+11. Exercise all GUI buttons, item-transfer protections, effects, naming, pet and storage preview.
+
+Rendering smoothness, installed API compatibility, clip timing and protection-plugin
+interactions require this acceptance. Do not use Bukkit `/reload`; fully restart
+for JAR installation and use the plugin's own config reload for settings.

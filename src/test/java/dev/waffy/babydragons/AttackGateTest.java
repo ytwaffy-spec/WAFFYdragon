@@ -18,15 +18,15 @@ class AttackGateTest {
   assertEquals(0,d.manualAttackCooldownUntil);assertNotNull(gate.acquire(d,MANUAL,2000));
  }
  @Test void disabledAutoDoesNotDisableManualAndViceVersa() {
-  var gate=new AttackGate();var d=new DragonData();d.autoAttackEnabled=false;
+  var gate=new AttackGate();var d=new DragonData();d.assistAttackEnabled=false;d.defenseAttackEnabled=false;
   assertNull(gate.acquire(d,AUTO,1000));var token=gate.acquire(d,MANUAL,1000);assertNotNull(token);
-  gate.release(token);d.autoAttackEnabled=true;d.manualAttackEnabled=false;
+  gate.release(token);d.assistAttackEnabled=true;d.manualAttackEnabled=false;
   assertNull(gate.acquire(d,MANUAL,1000));assertNotNull(gate.acquire(d,AUTO,1000));
  }
  @Test void cooldownsSurviveNewLockAndBoundaryIsExact() {
   var d=new DragonData();d.autoAttackCooldownUntil=32000;d.manualAttackCooldownUntil=50000;var gate=new AttackGate();
   assertNull(gate.acquire(d,AUTO,31999));var token=gate.acquire(d,AUTO,32000);assertNotNull(token);gate.release(token);
-  assertNull(gate.acquire(d,MANUAL,32000));assertNotNull(gate.acquire(d,MANUAL,50000));
+  assertNotNull(gate.acquire(d,MANUAL,32000));
   assertEquals(1,AttackGate.remainingSeconds(32000,31999));assertEquals(0,AttackGate.remainingSeconds(32000,32000));
   assertEquals(0,AttackGate.remainingSeconds(32000,50000));
  }
@@ -35,6 +35,6 @@ class AttackGateTest {
   var current=gate.acquire(d,MANUAL,0);gate.release(old);gate.release(null);
   gate.complete(d,AUTO,old,true,10,30000);gate.complete(d,MANUAL,UUID.randomUUID(),true,10,30000);
   assertTrue(gate.busy());assertEquals(0,d.autoAttackCooldownUntil);assertEquals(0,d.manualAttackCooldownUntil);
-  gate.complete(d,MANUAL,current,true,10,30000);assertEquals(30010,d.manualAttackCooldownUntil);
+  gate.complete(d,MANUAL,current,true,10,30000);assertEquals(0,d.manualAttackCooldownUntil);
  }
 }

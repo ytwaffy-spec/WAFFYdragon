@@ -32,9 +32,10 @@ public final class InventoryListener implements Listener {
       if(plugin.dragons().data().state==state && !plugin.attacks().busy()) p.sendMessage("Your dragon is already "+state.name().toLowerCase(java.util.Locale.ROOT)+".");
       else { plugin.dragons().state(state);p.sendActionBar(plugin.mm("<#CCAAFF>Dragon is "+state.name().toLowerCase(java.util.Locale.ROOT)+".")); }
      }
-     case 15,16 -> {
+     case 13,15,16 -> {
       if(!p.hasPermission("babydragons.attack")) { p.sendMessage("No attack permission.");return; }
-      if(slot==15) plugin.setAuto(!plugin.dragons().data().autoAttackEnabled);
+      if(slot==13) plugin.setAssist(!plugin.dragons().data().assistAttackEnabled);
+      else if(slot==15) plugin.setDefense(!plugin.dragons().data().defenseAttackEnabled);
       else plugin.setManual(!plugin.dragons().data().manualAttackEnabled);
       plugin.gui().open(p);
      }

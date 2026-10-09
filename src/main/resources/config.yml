@@ -1,3 +1,4 @@
+config-version: 2
 # Owner-supplied IDs, validated against the installed ModelEngine registry.
 models:
   galaxy:
@@ -5,22 +6,23 @@ models:
   fire:
     id: cubee-fire_dragon
 animations:
+  sitting: ""
   idle: idle
   follow: walk
   pet: pet
-  auto-attack: execute
-  fire-attack: execute
-  # Sequence timings; tune against the purchased animation clips.
   pet-ticks: 40
-  execute-windup-ticks: 20
-  execute-recovery-ticks: 30
 movement:
-  follow-distance: 3.0
-  teleport-distance: 24.0
+  teleport-distance: 30.0
+  unstuck-seconds: 2
+  follow:
+    distance: 3.0
+    smooth-factor: 0.20
+    max-speed: 0.35
+    rotation-smooth-factor: 0.20
+  attack:
+    max-speed: 0.65
   attack-stop-distance: 2.0
-  update-ticks: 2
-  speed-per-tick: 0.28
-  attack-speed-per-tick: 0.45
+  update-ticks: 1
   attack-timeout-seconds: 20
   name-height: 2.5
 effects:
@@ -29,23 +31,48 @@ effects:
   absorption: {enabled: true, amplifier: 0}
   refresh-ticks: 40
   duration-ticks: 160
-auto-attack:
-  enabled-by-default: true
-  cooldown-seconds: 30
-  damage: 6.0
+galaxy-attack:
+  assist-enabled-by-default: true
+  defense-enabled-by-default: true
+  cooldown-seconds: 5
+  chain-radius: 2.5
+  max-chase-distance: 40
+  max-strikes: 4
+  player-damage-per-strike: 4.0
+  mob-damage-per-strike: 20.0
   levitation-seconds: 5
   levitation-amplifier: 0
-  breath-radius: 2.5
-manual-attack:
+  animation:
+    id: execute
+    speed: 1.0
+  strike-ticks: [8, 16, 24, 32]
+fire-attack:
   enabled-by-default: true
-  target-range: 64
-  cooldown-seconds: 30
-  damage: 8.0
-  radius: 2.5
-  allowed-items: [AIR, STICK]
-  required-hotbar-slot: 9
+  target-range: 100
+  target-lock-grace-millis: 700
+  cooldown-seconds: 0
+  player-damage: 14.0
+  mob-damage: 20.0
+  blast-radius: {x: 2.0, y: 2.0, z: 2.0}
+  animation:
+    id: execute
+    speed: 0.75
+    impact-delay-ticks: 20
+  required-item: STICK
+  required-slot: 9
   break-blocks: false
-  crystal-ticks: 6
+dragon-immunity:
+  enabled: true
+  remove-negative-effects: true
+  notify-chat: true
+  notify-end: true
+  harmful-effects: [POISON, WITHER, WEAKNESS, SLOWNESS, MINING_FATIGUE, BLINDNESS, DARKNESS, HUNGER, NAUSEA, LEVITATION]
+sounds:
+  galaxy-execute-start: {enabled: true, sound: ENTITY_ENDER_DRAGON_GROWL, volume: 0.6, pitch: 1.4}
+  galaxy-strike: {enabled: true, sound: ENTITY_ENDER_DRAGON_HURT, volume: 0.45, pitch: 1.6}
+  fire-lock: {enabled: true, sound: BLOCK_BEACON_POWER_SELECT, volume: 0.45, pitch: 1.6}
+  fire-execute: {enabled: true, sound: ENTITY_ENDER_DRAGON_GROWL, volume: 0.7, pitch: 1.25}
+  crystal-pop: {enabled: true, sound: ENTITY_GENERIC_EXPLODE, volume: 0.8, pitch: 1.3}
 gui:
   title: "<gradient:#9D4EDD:#FF4DFF><bold>✦ Dragon Control ✦</bold></gradient>"
 storage:

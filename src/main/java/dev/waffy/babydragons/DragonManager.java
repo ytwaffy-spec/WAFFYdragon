@@ -39,14 +39,15 @@ public final class DragonManager {
  }
  public void spawnOrRecover(Player player) {
   if(!plugin.models().baseReady()) throw new IllegalStateException("Galaxy model unavailable; check console and /dragonadmin reload.");
-  plugin.attacks().cancel();plugin.effects().clearAll();
+  plugin.attacks().cancel();plugin.manual().clear();plugin.effects().clearAll();
   boolean fresh=data==null;
   if(fresh) {
    Location where=plugin.movement().safeNear(player);
    data=new DragonData();data.dragonId=UUID.randomUUID();data.ownerUuid=player.getUniqueId();
    data.location=DragonMovementController.position(where);data.baseModelId=plugin.settings().s("models.galaxy.id");
-   data.autoAttackEnabled=plugin.settings().b("auto-attack.enabled-by-default");
-   data.manualAttackEnabled=plugin.settings().b("manual-attack.enabled-by-default");
+   data.assistAttackEnabled=plugin.settings().b("galaxy-attack.assist-enabled-by-default");
+   data.defenseAttackEnabled=plugin.settings().b("galaxy-attack.defense-enabled-by-default");
+   data.manualAttackEnabled=plugin.settings().b("fire-attack.enabled-by-default");
   }
   try { recover();data.ownerUuid=player.getUniqueId();mark(controller,"controller");mark(label,"name");save(); }
   catch(RuntimeException error) {
@@ -116,11 +117,12 @@ public final class DragonManager {
    Player owner=owner();
    if(data.state==DragonState.SITTING) {
     plugin.movement().stop(controller);Location seat=DragonMovementController.location(data.sittingLocation);
-    if(!seat.getWorld().equals(controller.getWorld()) || controller.getLocation().distanceSquared(seat)>.0025)
+    if(!seat.equals(controller.getLocation()))
      plugin.movement().teleport(controller,seat);
    } else if(owner!=null && owner.isOnline() && !owner.isDead()) moving=plugin.movement().follow(controller,owner);
    else plugin.movement().stop(controller);
-   plugin.animations().normal(moving,tick);
+   if(data.state==DragonState.SITTING) plugin.animations().sitting(tick);
+   else plugin.animations().normal(moving,tick);
   }
   data.location=DragonMovementController.position(controller.getLocation());
   Location target=controller.getLocation().add(0,plugin.settings().d("movement.name-height"),0);target.setYaw(0);target.setPitch(0);
@@ -133,7 +135,10 @@ public final class DragonManager {
  }
  public void releaseTicket() { if(ticket!=null) ticket.removePluginChunkTicket(plugin);ticket=null; }
  public void state(DragonState state) {
-  requireValid();plugin.attacks().cancel();data.state=state;
+  requireValid();plugin.attacks().cancel();
+  Location seat=state==DragonState.SITTING?plugin.movement().ground(controller.getLocation()):null;
+  if(seat!=null) plugin.movement().teleport(controller,seat);
+  data.state=state;
   if(state==DragonState.SITTING) {
    plugin.movement().stop(controller);data.sittingLocation=DragonMovementController.position(controller.getLocation());
    plugin.effects().clearAll();
@@ -157,7 +162,7 @@ public final class DragonManager {
   catch(IOException e) { plugin.getLogger().log(java.util.logging.Level.SEVERE,"Could not save dragon data",e); }
  }
  public void remove() throws IOException {
-  plugin.attacks().cancel();store.delete();plugin.effects().clearAll();
+  plugin.attacks().cancel();plugin.manual().clear();store.delete();plugin.effects().clearAll();
   try { plugin.models().detach(); }
   finally {
    if(controller!=null) controller.remove();if(label!=null) label.remove();

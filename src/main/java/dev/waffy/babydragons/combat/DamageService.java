@@ -9,6 +9,7 @@ public final class DamageService implements Listener {
  private LivingEntity pending;
  private Player source;
  private boolean accepted;
+ public boolean applyingDragonDamage() { return pending!=null; }
  public DamageService(BaByDragonsPlugin plugin) { this.plugin=plugin; }
  public boolean allowed(LivingEntity target,Player owner,boolean manual) {
   if(!target.isValid() || target.isDead() || target.isInvulnerable() || target.equals(owner)
@@ -21,15 +22,22 @@ public final class DamageService implements Listener {
    Team global=owner.getServer().getScoreboardManager().getMainScoreboard().getEntryTeam(owner.getName());
    return global==null || !global.hasEntry(p.getName()) || global.allowFriendlyFire();
   }
-  return !manual || target instanceof Enemy;
+  return true;
  }
  public boolean damage(LivingEntity target,Player owner,double amount,boolean manual) {
   if(!allowed(target,owner,manual)) return false;
   // Reject nested damage contexts rather than corrupting acceptance tracking.
   if(pending!=null) return false;
   pending=target;source=owner;accepted=false;
-  try { target.damage(amount,owner);return accepted; }
-  finally { pending=null;source=null; }
+  int hurtTicks=target.getNoDamageTicks();
+  try {
+   // Eight-tick chain moments must still reach Bukkit's damage/protection pipeline.
+   if(!manual) target.setNoDamageTicks(0);
+   target.damage(amount,owner);return accepted;
+  } finally {
+   if(!manual && !accepted) target.setNoDamageTicks(hurtTicks);
+   pending=null;source=null;
+  }
  }
  @EventHandler(priority=EventPriority.MONITOR)
  public void record(EntityDamageByEntityEvent event) {

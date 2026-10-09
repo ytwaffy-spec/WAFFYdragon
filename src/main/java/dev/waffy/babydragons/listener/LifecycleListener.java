@@ -12,7 +12,7 @@ public final class LifecycleListener implements Listener {
  private void interrupt(Player p) {
   if(!plugin.dragons().owns(p)) return;
   try { plugin.attacks().cancel(); }
-  finally { plugin.effects().clearAll();plugin.dragons().save();p.closeInventory(); }
+  finally { plugin.manual().clear();plugin.immunity().end();plugin.effects().clearAll();plugin.dragons().save();p.closeInventory(); }
  }
  @EventHandler public void quit(PlayerQuitEvent e) {
   try { interrupt(e.getPlayer()); }

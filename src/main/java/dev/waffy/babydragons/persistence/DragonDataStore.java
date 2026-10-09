@@ -11,24 +11,27 @@ public final class DragonDataStore {
   if(!Files.exists(path)) return Optional.empty();
   try {
    var y=new YamlConfiguration();y.load(path.toFile());
-   if(y.getInt("schema")!=1) throw new IllegalArgumentException("Unsupported schema");
+   int schema=y.getInt("schema");
+   if(schema!=1 && schema!=2) throw new IllegalArgumentException("Unsupported schema");
    var d=new DragonData();
    d.dragonId=uuid(y,"dragonId");d.ownerUuid=uuid(y,"ownerUuid");
    d.controllerEntityUuid=uuid(y,"controllerEntityUuid");d.nameEntityUuid=uuid(y,"nameEntityUuid");
    d.dragonName=NameRules.name(y.getString("dragonName"));d.nameColor=NameRules.color(y.getString("nameColor")).asHexString();
    d.state=DragonState.valueOf(y.getString("state",""));d.location=position(y,"location");d.sittingLocation=position(y,"sittingLocation");
-   d.effectsEnabled=bool(y,"effectsEnabled");d.autoAttackEnabled=bool(y,"autoAttackEnabled");d.manualAttackEnabled=bool(y,"manualAttackEnabled");
+   d.effectsEnabled=bool(y,"effectsEnabled");d.manualAttackEnabled=bool(y,"manualAttackEnabled");
+   d.assistAttackEnabled=schema==1?bool(y,"autoAttackEnabled"):bool(y,"assistAttackEnabled");
+   d.defenseAttackEnabled=schema==1?bool(y,"autoAttackEnabled"):bool(y,"defenseAttackEnabled");
    d.autoAttackCooldownUntil=timestamp(y,"autoAttackCooldownUntil");d.manualAttackCooldownUntil=timestamp(y,"manualAttackCooldownUntil");
    d.baseModelId=y.getString("baseModelId");d.validate();return Optional.of(d);
   } catch(Exception e) { throw new IOException("Invalid data.yml; original preserved and recovery stopped",e); }
  }
  public void save(DragonData d) throws IOException {
   d.validate();var y=new YamlConfiguration();
-  y.set("schema",1);y.set("dragonId",str(d.dragonId));y.set("ownerUuid",str(d.ownerUuid));
+  y.set("schema",2);y.set("dragonId",str(d.dragonId));y.set("ownerUuid",str(d.ownerUuid));
   y.set("controllerEntityUuid",str(d.controllerEntityUuid));y.set("nameEntityUuid",str(d.nameEntityUuid));
   y.set("dragonName",d.dragonName);y.set("nameColor",d.nameColor);y.set("state",d.state.name());
   position(y,"location",d.location);position(y,"sittingLocation",d.sittingLocation);
-  y.set("effectsEnabled",d.effectsEnabled);y.set("autoAttackEnabled",d.autoAttackEnabled);y.set("manualAttackEnabled",d.manualAttackEnabled);
+  y.set("effectsEnabled",d.effectsEnabled);y.set("assistAttackEnabled",d.assistAttackEnabled);y.set("defenseAttackEnabled",d.defenseAttackEnabled);y.set("manualAttackEnabled",d.manualAttackEnabled);
   y.set("autoAttackCooldownUntil",d.autoAttackCooldownUntil);y.set("manualAttackCooldownUntil",d.manualAttackCooldownUntil);
   y.set("baseModelId",d.baseModelId);
   Path parent=path.toAbsolutePath().getParent();Files.createDirectories(parent);

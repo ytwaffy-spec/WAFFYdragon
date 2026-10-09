@@ -14,7 +14,17 @@ public final class DragonControlGUI {
   if(!plugin.dragons().owns(player)) { plugin.message(player,"not-owner");return; }
   DragonData d=plugin.dragons().data();
   var holder=new DragonMenuHolder(player.getUniqueId(),d.dragonId,DragonMenuHolder.Kind.CONTROL);
-  Inventory inventory=Bukkit.createInventory(holder,27,plugin.mm(plugin.settings().s("gui.title")));holder.bind(inventory);fill(inventory);
+  Inventory inventory=Bukkit.createInventory(holder,27,plugin.mm(plugin.settings().s("gui.title")));holder.bind(inventory);render(inventory,d);
+  player.openInventory(inventory);
+ }
+ public void refreshOpen() {
+  for(Player p:Bukkit.getOnlinePlayers()) {
+   Inventory inventory=p.getOpenInventory().getTopInventory();
+   if(inventory.getHolder() instanceof DragonMenuHolder holder && holder.kind==DragonMenuHolder.Kind.CONTROL && plugin.dragons().owns(p)) render(inventory,plugin.dragons().data());
+  }
+ }
+ private void render(Inventory inventory,DragonData d) {
+  fill(inventory);
   inventory.setItem(10,item(Material.BEACON,title("effects","<#B77AFF>✦ Dragon Effects"),
    "<gray>Passive powers granted by your dragon.","","<white>Strength II","<white>Haste II","<white>Absorption","",status(d.effectsEnabled),toggle(d.effectsEnabled)));
   inventory.setItem(11,item(Material.NAME_TAG,title("rename","<#FF99DD>✦ Rename Dragon"),
@@ -23,17 +33,18 @@ public final class DragonControlGUI {
    "<gray>Remain at the current location.","",d.state==DragonState.SITTING?"<#55FF88>Currently sitting":"<#CCAAFF>Click to sit"));
   inventory.setItem(14,item(Material.FEATHER,title("follow","<#D4B8FF>✦ Follow"),
    "<gray>Travel alongside your owner.","",d.state==DragonState.FOLLOWING?"<#55FF88>Currently following":"<#CCAAFF>Click to follow"));
-  inventory.setItem(15,item(Material.DRAGON_BREATH,title("auto","<#B777FF>✦ Guardian Attack"),
-   "<gray>When someone attacks you,","<gray>your dragon retaliates automatically.","",
-   "<gray>Cooldown: <white>"+plugin.settings().d("auto-attack.cooldown-seconds")+" seconds",
-   status(d.autoAttackEnabled),cooldown(d.autoAttackCooldownUntil),toggle(d.autoAttackEnabled)));
+  inventory.setItem(13,item(Material.IRON_SWORD,title("assist","<#B777FF>⚔ Combat Assist"),
+   "<gray>When you attack an enemy,","<gray>your dragon joins the fight.","",
+   status(d.assistAttackEnabled),attackStatus(d.autoAttackCooldownUntil),toggle(d.assistAttackEnabled)));
+  inventory.setItem(15,item(Material.SHIELD,title("defense","<#77BBFF>🛡 Guardian Defense"),
+   "<gray>When an enemy attacks you,","<gray>your dragon retaliates.","",
+   status(d.defenseAttackEnabled),attackStatus(d.autoAttackCooldownUntil),toggle(d.defenseAttackEnabled)));
   inventory.setItem(16,item(Material.FIRE_CHARGE,title("manual","<#FF9666>✦ Inferno Strike"),
-   "<gray>Slot 9 • empty hand or stick","<gray>Sneak, aim at a block, right-click.","",
-   status(d.manualAttackEnabled),cooldown(d.manualAttackCooldownUntil),toggle(d.manualAttackEnabled)));
+   "<gray>Slot 9 • stick • locked entity","<gray>Sneak + right-click to strike.","<gray>Cooldown: None — Phase 1",
+   status(d.manualAttackEnabled),plugin.attacks().busy()?"<#FFCC88>ATTACKING":plugin.manual().locked()==null?"<gray>NO TARGET":"<#55FF88>READY",toggle(d.manualAttackEnabled)));
   inventory.setItem(22,item(Material.CHEST,title("storage","<#DD99FF>✦ Dragon Storage"),
    "<gray>Storage is locked in Phase 1.","<#CCAAFF>Click to preview"));
   inventory.setItem(26,item(Material.BARRIER,title("close","<#FF7777>Close")));
-  player.openInventory(inventory);
  }
  private String title(String key,String fallback) { return plugin.text("gui."+key+".name",fallback); }
  public ItemStack item(Material material,String name,String... lore) {
@@ -52,4 +63,5 @@ public final class DragonControlGUI {
  private static String cooldown(long until) {
   long left=AttackGate.remainingSeconds(until,System.currentTimeMillis());return left==0?"<#55FF88>Ready":"<#FFCC88>Cooldown: "+left+"s";
  }
+ private String attackStatus(long until) { return plugin.attacks().busy()?"<#FFCC88>ATTACKING":cooldown(until); }
 }

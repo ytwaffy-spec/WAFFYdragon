@@ -12,6 +12,9 @@ public final class ModelEngineController {
  private final BaByDragonsPlugin plugin;
  private final Method blueprint,create,get,remove,active,models,add,removeModel,visible,saved,destroy;
  private final Method animationHandler,play,stop,isPlaying,blueprintAnimations,activeDestroy,isDestroyed;
+ private final Method animationLength,forceLoop,propertyFinished,autoRenderer;
+ private final Object once;
+ private Object galaxyAttack,fireAttack;
  private final Method eventPlayer,eventBase,eventAction,eventSlot,baseId;
  private final Class<? extends Event> interactionClass;
  private Object modeled,galaxy,fire;
@@ -36,6 +39,12 @@ public final class ModelEngineController {
   play=ah.getMethod("playAnimation",String.class,double.class,double.class,double.class,boolean.class);
   stop=ah.getMethod("forceStopAllAnimations");isPlaying=ah.getMethod("isPlayingAnimation",String.class);
   blueprintAnimations=bp.getMethod("getAnimations");
+  animationLength=loader.loadClass("com.ticxo.modelengine.api.animation.BlueprintAnimation").getMethod("getLength");
+  Class<?> property=loader.loadClass("com.ticxo.modelengine.api.animation.property.IAnimationProperty");
+  Class<?> loop=loader.loadClass("com.ticxo.modelengine.api.animation.BlueprintAnimation$LoopMode");
+  once=java.util.Arrays.stream(loop.getEnumConstants()).filter(x->((Enum<?>)x).name().equals("ONCE")).findFirst().orElseThrow();
+  forceLoop=property.getMethod("setForceLoopMode",loop);propertyFinished=property.getMethod("isFinished");
+  autoRenderer=am.getMethod("setAutoRendererInitialization",boolean.class);
   interactionClass=loader.loadClass("com.ticxo.modelengine.api.events.BaseEntityInteractEvent").asSubclass(Event.class);
   eventPlayer=interactionClass.getMethod("getPlayer");eventBase=interactionClass.getMethod("getBaseEntity");
   eventAction=interactionClass.getMethod("getAction");eventSlot=interactionClass.getMethod("getSlot");
@@ -50,8 +59,8 @@ public final class ModelEngineController {
   }
  }
  public void validateModels() {
-  baseReady=validate("models.galaxy.id",List.of("idle","follow","pet","auto-attack"));
-  fireReady=validate("models.fire.id",List.of("fire-attack"));
+  baseReady=validate("models.galaxy.id",List.of("animations.idle","animations.follow","animations.pet","galaxy-attack.animation.id"));
+  fireReady=validate("models.fire.id",List.of("fire-attack.animation.id"));
  }
  private boolean validate(String key,List<String> animations) {
   String id=plugin.settings().s(key);Object bp=call(blueprint,null,id);
@@ -61,7 +70,7 @@ public final class ModelEngineController {
   }
   Map<?,?> clips=(Map<?,?>)call(blueprintAnimations,bp);
   for(String logical:animations) {
-   String clip=plugin.settings().s("animations."+logical);
+   String clip=plugin.settings().s(logical);
    if(!clips.containsKey(clip)) { plugin.getLogger().severe("ModelEngine blueprint '"+id+"' has no animation '"+clip+"'.");return false; }
   }
   plugin.getLogger().info("Validated installed blueprint: "+id);return true;
@@ -87,7 +96,11 @@ public final class ModelEngineController {
   // Preserve the installed model's default size: no scale/hitbox-scale API.
  }
  public boolean playGalaxy(String clip,boolean force) {
-  return galaxy!=null && call(play,call(animationHandler,galaxy),clip,.15,.15,1.0,force)!=null;
+  if(galaxy==null) return false;
+  call(play,call(animationHandler,galaxy),clip,.15,.15,1.0,force);
+  boolean playing=isGalaxyPlaying(clip);
+  if(!playing) plugin.getLogger().warning("Galaxy animation did not start: "+clip);
+  return playing;
  }
  public boolean isGalaxyPlaying(String clip) { return galaxy!=null && Boolean.TRUE.equals(call(isPlaying,call(animationHandler,galaxy),clip)); }
  public void stopGalaxy() { if(galaxy!=null) call(stop,call(animationHandler,galaxy)); }
@@ -95,9 +108,43 @@ public final class ModelEngineController {
   if(!fireReady || modeled==null) return false;
   endFire();fireId=plugin.settings().s("models.fire.id");fire=call(active,null,fireId);
   if(fire==null) return false;
+  call(autoRenderer,fire,true);
   call(add,modeled,fire,false); // Secondary overlay; Galaxy retains main hitbox.
-  boolean result=call(play,call(animationHandler,fire),plugin.settings().s("animations.fire-attack"),.1,.15,1.0,true)!=null;
-  if(!result) endFire();return result;
+  Object handler=call(animationHandler,fire);call(stop,handler);
+  String clip=plugin.settings().s("fire-attack.animation.id");
+  fireAttack=call(play,handler,clip,0.0,.15,plugin.settings().d("fire-attack.animation.speed"),true);
+  if(fireAttack!=null) call(forceLoop,fireAttack,once);
+  boolean result=Boolean.TRUE.equals(call(isPlaying,handler,clip));
+  if(!result) { plugin.getLogger().warning("Fire execute did not start; inspect /dragonadmin animationstatus");endFire(); }
+  return result;
+ }
+ public boolean beginGalaxyAttack() {
+  stopGalaxy();
+  if(galaxy==null) return false;
+  galaxyAttack=call(play,call(animationHandler,galaxy),plugin.settings().s("galaxy-attack.animation.id"),0.0,.15,plugin.settings().d("galaxy-attack.animation.speed"),true);
+  if(galaxyAttack==null) return false;
+  call(forceLoop,galaxyAttack,once);return true;
+ }
+ public boolean attackFinished(boolean manual) {
+  Object property=manual?fireAttack:galaxyAttack;
+  return property==null || Boolean.TRUE.equals(call(propertyFinished,property));
+ }
+ public int attackTicks(boolean manual) {
+  String kind=manual?"fire-attack":"galaxy-attack";
+  Object bp=call(blueprint,null,plugin.settings().s(manual?"models.fire.id":"models.galaxy.id"));
+  Object clip=((Map<?,?>)call(blueprintAnimations,bp)).get(plugin.settings().s(kind+".animation.id"));
+  double seconds=((Number)call(animationLength,clip)).doubleValue();
+  if(!Double.isFinite(seconds) || seconds<=0 || seconds>120) throw new IllegalStateException("Invalid execute clip duration: "+seconds);
+  return (int)Math.ceil(seconds*20/plugin.settings().d(kind+".animation.speed"))+4;
+ }
+ public void status(org.bukkit.command.CommandSender sender) {
+  describe(sender,"Galaxy "+plugin.settings().s("models.galaxy.id"),galaxy);
+  describe(sender,"Fire "+fireId,fire);
+ }
+ private void describe(org.bukkit.command.CommandSender sender,String id,Object model) {
+  sender.sendMessage(id+" attached="+(model!=null));if(model==null) return;
+  Object handler=call(animationHandler,model);sender.sendMessage("AnimationHandler: "+handler.getClass().getName());
+  for(String clip:List.of("idle","walk","pet","execute")) sender.sendMessage(clip+" playing="+call(isPlaying,handler,clip));
  }
  private void removeActive(String id) {
   Object result=call(removeModel,modeled,id);
@@ -108,7 +155,7 @@ public final class ModelEngineController {
  public void endFire() {
   if(fire!=null && modeled!=null) {
    try { removeActive(fireId); }
-   finally { fire=null;fireId=null; }
+   finally { fire=null;fireId=null;fireAttack=null; }
   }
  }
  public void detach() {

@@ -1,14 +1,25 @@
 # BaByDragons Downloads
 
-## Current: BaByDragons 0.67.A
+## Current: BaByDragons 1.67.A
 
-**[Download BaByDragons 0.67.A.jar](https://github.com/ytwaffy-spec/WAFFYdragon/blob/main/downloads/BaByDragons%200.67.A.jar?raw=true)**
+[BaByDragons 1.67.A.jar](BaByDragons%201.67.A.jar) is the final Phase 1 patch:
+smooth follow, independent Galaxy assist/defense, four-strike execute, owner combat
+immunity, entity-locked Fire and no Fire cooldown. Requires Paper 26.3, Java 25 and
+ModelEngine 4.1.1. Keep your licensed assets. Install only this BaByDragons JAR and
+fully restart. See [README](../README.md) and [verification](../TESTING.md).
+
+## Historical: BaByDragons 0.67.A Movement Patch
+
+**[BaByDragons 0.67.A.jar](BaByDragons%200.67.A.jar)**
+
+Desktop movement patch; GitHub publication is pending. The historical 0.67.B
+artifact lacks these fixes. Install only one BaByDragons JAR and fully restart.
 
 Paper 26.3, Java 25, ModelEngine 4 required. Use your existing working ModelEngine
 resource pack and installed `cubee-galaxy_dragon` / `cubee-fire_dragon` blueprints.
 Remove the old prototype JAR before installing this one, then run `/dragonadmin spawn`.
 
-This reconstructed development build passes 19 automated logic tests. Live
+This patched development build passes 22 automated logic tests. Live
 Paper/ModelEngine/client behavior is not tested. See the [installation guide](../README.md)
 and [test report](../TESTING.md). No purchased assets are included.
 

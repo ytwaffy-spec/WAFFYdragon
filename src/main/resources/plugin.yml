@@ -1,5 +1,5 @@
 name: BaByDragons
-version: 0.67.A
+version: 1.67.A
 main: dev.waffy.babydragons.BaByDragonsPlugin
 api-version: '26.3'
 depend: [ModelEngine]

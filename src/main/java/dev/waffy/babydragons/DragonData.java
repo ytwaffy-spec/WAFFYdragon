@@ -5,7 +5,7 @@ public final class DragonData {
  public String dragonName="BabyDragon", nameColor="#B026FF", baseModelId;
  public DragonState state=DragonState.FOLLOWING;
  public Position location, sittingLocation;
- public boolean effectsEnabled=true, autoAttackEnabled=true, manualAttackEnabled=true;
+ public boolean effectsEnabled=true, assistAttackEnabled=true, defenseAttackEnabled=true, manualAttackEnabled=true;
  public long autoAttackCooldownUntil, manualAttackCooldownUntil;
  public record Position(UUID world,double x,double y,double z,float yaw) {
   public Position {

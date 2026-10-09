@@ -1,175 +1,118 @@
-# BaByDragons 0.67.A — Phase 1
+# BaByDragons 1.67.A - Final Phase 1 Patch
 
-**[Download BaByDragons 0.67.A.jar](https://github.com/ytwaffy-spec/WAFFYdragon/blob/main/downloads/BaByDragons%200.67.A.jar?raw=true)**
+Plugin artifact: [BaByDragons 1.67.A.jar](downloads/BaByDragons%201.67.A.jar).
 
-Requires **Paper 26.3**, **Java 25**, and **ModelEngine 4**. The owner supplied `ModelEngine-4.1.1.jar` as the initial target; startup logs the installed version and checks the public API signatures.
+Requires Paper 26.3, Java 25 and ModelEngine 4.1.1. This patches the existing
+Phase 1 plugin. Galaxy remains the permanent model; Fire is a temporary overlay.
+Purchased models, textures, resource packs and ModelEngine binaries are not included.
+No model scaling is applied. No MythicMobs, MCPets or Oraxen is required.
 
-This is a **reconstructed development build**. The original uncommitted cloud workspace became unavailable. Source was reconstructed from the retained specification and implementation details, rebuilt, and tested again. It is not claimed to be byte-identical to the lost JAR.
+## Installation
 
-## Install
+1. Stop the server and back up `plugins/BaByDragons/`.
+2. Replace all older BaByDragons plugin JARs with `BaByDragons 1.67.A.jar`.
+3. Keep your existing licensed ModelEngine assets and working resource pack.
+4. Fully start the server. Check blueprint validation and animation API linkage.
+5. Use `/dragonadmin info` to confirm version, state, toggles and model playback.
 
-1. Stop your Paper 26.3 server running Java 25.
-2. Remove the older `BabyDragon-0.1.0.jar` prototype if installed; it owns the same command names.
-3. Keep your licensed ModelEngine installation, purchased blueprints and already-working resource pack.
-4. Download the JAR above and put it in `plugins/`.
-5. Start the server; check the ModelEngine version and blueprint validation messages.
-6. Run `/dragonadmin spawn` as an operator. Repeating this recovers the same dragon and assigns the executing player as owner.
+Existing data migrates to schema 2: the old `autoAttackEnabled` value becomes both
+`assistAttackEnabled` and `defenseAttackEnabled`. Identity, name, seat, effects and
+manual toggle are preserved. The old manual cooldown is ignored. Missing config
+fields are populated and the original config is backed up as
+`config.before-1.67.A.yml`. Legacy configs move to a one-tick update interval.
+Do not downgrade the migrated data to an older JAR without restoring your backup.
 
-No resource pack is rebuilt or distributed for 0.67.A. The older pack under downloads belongs only to the 0.1.0 prototype. No MythicMobs, MCPets or Oraxen dependency is used. No model scaling, ItemDisplay conversion, shoulder mode or riding.
+## Movement and Sitting
 
-**Live server/client acceptance has not been performed.** Compilation and logic tests cannot establish ModelEngine compatibility or visual behavior. See [TESTING.md](TESTING.md) before live deployment.
+Controlled position steps use smooth acceleration, deceleration, shortest-arc yaw
+and a small follow deadband. The dragon faces the owner even when resting within
+follow range. Default follow distance is 3 blocks, follow speed 0.35 blocks/tick,
+attack speed 0.65, rotation factor 0.20 and emergency catch-up distance 30 blocks.
+Direct flight is not obstacle pathfinding and can cross blocks.
 
-## Models and ModelEngine
+Sit grounds the controller and saves its exact position. An empty
+`animations.sitting` stops Galaxy animations for a static pose. Attack return
+travels back to the owner or saved seat; denied/stalled movement has a two-second
+watchdog and a bounded emergency recovery path.
 
-| Role | Initial blueprint ID | Required animations |
-| --- | --- | --- |
-| Galaxy base | `cubee-galaxy_dragon` | idle, walk, pet, execute |
-| Fire overlay | `cubee-fire_dragon` | execute |
+## Galaxy Combat
 
-The owner supplied these IDs from `plugins/ModelEngine/blueprints/Cubees/v20 Dragons/`. Purchased blueprints and ModelEngine binaries are absent in this workspace, so the IDs were **not locally detected**. Runtime registry validation checks both IDs and mapped animations. Missing Galaxy prevents spawning/movement; missing Fire prevents manual attacks. Errors identify the ID/clip. Correct the installation/config and use `/dragonadmin reload`.
+- **Combat Assist:** a successful owner hit starts a sequence.
+- **Guardian Defense:** a successful incoming combat hit starts the same sequence.
+- Both switches are independent and share one five-second Galaxy cooldown.
+- One execute animation contains four visual strike moments, default ticks 8/16/24/32.
+- Nearby targets within 2.5 blocks are selected with unused targets preferred.
+- Target loss causes replacement or a visual strike at the last valid position.
+- Damage per strike defaults to 4 raw health points for players and 20 for mobs.
+- Successful-hit survivors receive Levitation once, after the full execute finishes.
+- Cooldown begins after return completes. Another sequence cannot overlap.
 
-The adapter directly invokes the documented public ModelEngine 4 API through cached reflective linkage; it validates signatures at startup. It uses ModelEngineAPI, ModeledEntity, ActiveModel, AnimationHandler and BaseEntityInteractEvent. There are no command bridges, NMS, fabricated API stubs or bundled proprietary dependencies. Signatures were reviewed against [the author's public ModelEngine 4 JavaDocs](https://github.com/Ticxo/Model-Engine-4.0-JavaDocs). Actual installed 4.1.1 binary compatibility still needs testing.
+Configured strike times must fit the installed execute clip at its configured
+speed. The plugin reads the blueprint duration, forces one-shot playback and
+checks animation completion before normal movement resumes. Invalid timing produces
+an explicit error instead of shortening the animation. Target loss does not cancel
+execute; owner logout/death/world change, disable and explicit cancellation do.
 
-Galaxy attaches to an invisible, silent, invulnerable Vex with AI, natural expiration, collision and native attacks disabled. A TextDisplay carries the literal name. The installed model keeps its default size. Direct velocity flight can pass through obstacles; it is not pathfinding.
+Dragon Immunity protects the owner from entity/projectile combat damage during
+Galaxy approach, execute and return. It cleanses only configured negative effects
+at the beginning and is cleared on all completion/cancellation paths. Environmental
+damage is unaffected. Messages use the dragon's name.
 
-**Fire approach: temporary full-model overlay.** Galaxy remains attached and retains the main hitbox while a secondary Fire ActiveModel plays execute. Fire is removed/destroyed on completion or cancellation. The purchased bone hierarchy was unavailable; this does not hide Fire body bones or use a VFX-only derived blueprint. Expect both models to overlap during the short effect. Tune timings on the actual server.
+## Inferno Strike
 
-## Commands and permissions
+Hold a **stick in hotbar slot 9**, aim at a living entity within **100 blocks**, then
+**sneak and right-click**. Air and block-only targeting no longer fire. Lock requires
+line of sight; a 700 ms aim grace period stabilizes selection. Changing to a new
+target plays a private lock sound. Glow is short-lived; foreign glow is preserved
+when observable through potion-effect events. The outline is visible to other clients.
 
-| Command | Behavior |
+Fire has **no cooldown**, but must wait until the active attack and return finish.
+The dragon travels above the locked entity, plays Fire execute at 0.75 speed, and
+tracks the target until impact. Default impact delay is 20 ticks. A cosmetic beam,
+temporary invulnerable crystal, particles and configurable sounds accompany impact.
+The crystal is removed by the plugin, never detonated. Damage uses a 4 x 4 x 4 box:
+at most 14 raw player damage and default 20 mob damage.
+
+All damage uses Bukkit events, armor and protection handling. Owner, dragon parts,
+armor stands, tamed pets, spectators, creative players and friendly-fire-protected
+teammates are excluded. PvP must be enabled. Galaxy strikes clear vanilla hurt
+invulnerability for each strike so eight-tick moments reach the damage event pipeline;
+rejected damage restores the previous hurt timer. No health-setting or explosion API
+is used. External protection plugins can cancel damage normally.
+
+## Controls
+
+The existing GUI, effects, rename, pet interaction, name display, storage preview,
+persistence and restart recovery remain. GUI combat statuses refresh once per second.
+
+| Command | Purpose |
 | --- | --- |
-| `/dragon`, `/dragon gui` | Owner control GUI |
-| `/dragon sit` | Save seat, stop following, idle |
-| `/dragon follow` | Follow owner |
-| `/dragon summon` | Move the existing dragon near owner and follow |
-| `/dragon name <name> <color>` | Literal colored name |
-| `/dragon info` | IDs, state, models, toggles and cooldowns |
-| `/dragonadmin spawn` | Create/recover exactly one; executing player becomes owner |
-| `/dragonadmin remove` | Remove dragon and saved record |
-| `/dragonadmin info` | Debug details |
-| `/dragonadmin sit\|follow\|summon` | Control existing dragon |
-| `/dragonadmin animation <idle\|walk\|pet\|execute>` | Cosmetic test (mapped clip names) |
-| `/dragonadmin autoattack <on\|off>` | Automatic toggle |
-| `/dragonadmin manualattack <on\|off>` | Independent manual toggle |
-| `/dragonadmin resetcooldowns` | Reset both timestamps |
-| `/dragonadmin reload` | Validate config, reconnect visuals |
+| `/dragon` | Owner GUI |
+| `/dragon sit`, `/dragon follow`, `/dragon summon` | Movement controls |
+| `/dragon name <name> <color>` | Name and color |
+| `/dragonadmin spawn`, `/dragonadmin remove` | Manage the single dragon |
+| `/dragonadmin info`, `/dragonadmin movementdebug` | Movement, attack and lock diagnostics |
+| `/dragonadmin animationstatus` | Model attachment, handler and clip playback |
+| `/dragonadmin animation <idle|walk|pet|execute>` | Direct animation diagnostic |
+| `/dragonadmin galaxytest <entity UUID or player name>` | Galaxy test using normal combat rules |
+| `/dragonadmin firetest <entity UUID or player name>` | Fire test using normal combat rules |
+| `/dragonadmin assist <on|off>`, `/dragonadmin defense <on|off>` | Independent Galaxy switches |
+| `/dragonadmin manualattack <on|off>` | Inferno toggle |
+| `/dragonadmin autoattack <on|off>` | Legacy alias changing both Galaxy switches |
+| `/dragonadmin resetcooldowns`, `/dragonadmin reload` | Reset or validate/reload settings |
 
-`babydragons.use`, `babydragons.name`, `babydragons.attack` default true but normal controls still require ownership. `babydragons.admin` defaults to OP. Tab completion is included. Admin commands intentionally bypass ownership restrictions.
+Diagnostic attack commands also accept the current Fire lock when no entity is
+specified. They deal real game damage and respect toggles, permissions and cooldowns.
+Owner permissions remain `babydragons.use`, `babydragons.name`, `babydragons.attack`;
+`babydragons.admin` defaults to operators. Storage remains a locked preview.
 
-Names accept 1–32 Unicode letters/numbers, spaces, apostrophes, dots, underscores or hyphens. Examples: `/dragon name Nova purple`, `/dragon name Little Nova #B026FF`, `/dragon name Nova aqua`. Named colors, purple/pink aliases and hex RGB work. Player names are literal Adventure Components, never MiniMessage input.
+## Build and Acceptance
 
-## GUI and effects
+With Java 25: `./gradlew clean build`. Output is `build/libs/BaByDragons 1.67.A.jar`.
+GitHub Actions uploads artifact `BaByDragons-1.67.A` after a successful main-branch build.
+The configured Paper API is resolved from Paper's Maven repository; optional local
+API input remains available with `-PlocalPaperApi=/path/to/api.jar`.
 
-Owner empty-main-hand right-click opens the 27-slot control GUI. Sneak-right-click plays pet, hearts and a quiet sound instead. Off-hand/duplicate events are ignored; non-owners receive an ownership message.
-
-| Zero-based slot | Control |
-| --- | --- |
-| 10 | Effects toggle |
-| 11 | Rename command help |
-| 12 / 14 | Sit / follow |
-| 15 / 16 | Independent auto / manual toggles |
-| 22 | 54-slot storage preview |
-| 26 | Close |
-
-Both menus use custom holders and cancel top/bottom clicks, shift transfers, number keys, double-click collection, drops, drags and inventory transfers. Buttons run the following tick after owner/menu/permission revalidation. Storage is a locked placeholder with Back/Close controls; no valuable items can be inserted.
-
-Following with effects enabled grants Strength II, Haste II and Absorption. Default refresh is every 40 ticks, with 160-tick lifetime. Ownership checks amplifier, expiry and flags; other providers' effects are preserved, even weaker ones. External changes relinquish ownership. Cleanup removes matching owned effects only. Refresh preserves spent absorption hearts. After a process crash, untracked effects expire naturally.
-
-## Automatic Galaxy defense
-
-Uncancelled positive damage to the owner from a living entity or living projectile shooter triggers retaliation when enabled, ready and valid. Self and environmental damage are ignored. Approach attacker, face it, play Galaxy execute, apply 6 Bukkit damage by default, Levitation I for 5 seconds, and dragon-breath particles over roughly 5×5.
-
-PvP settings, friendly-fire teams, damage-event cancellation and owner/dragon/tamed-pet exclusion apply. The 30-second cooldown starts only after accepted positive damage. Return to following or the exact saved seat.
-
-## Manual Inferno Strike
-
-1. Select **hotbar slot 9**.
-2. Hold **nothing or a stick** in the main hand.
-3. **Sneak**.
-4. Aim at a **block within 64 blocks**.
-5. **Right-click**.
-
-No block means feedback only: no movement or cooldown. On a valid strike the dragon approaches above the block, overlays Fire execute, briefly shows a controlled End Crystal, removes it, plays pop particles/sound and applies custom damage. Default damage 8, radius 2.5. Valid targets are hostile Enemy mobs and eligible PvP players, excluding the owner, dragon, armor stands and tamed pets.
-
-The crystal is invulnerable, controlled and nonpersistent. It is **removed, never detonated**. No real explosion or block-mutation API is called. Handlers also cancel tagged crystal damage, explosion and End-dimension block ignition.
-
-Manual cooldown is independent (default 30 seconds); a completed visual strike consumes it even with no enemies present. Slot-9 action-bar feedback runs at most once per second. Both attack types share a lock through approach, animation and return. Logout/death/world change/removal/reload/disable/timeout/invalid targets clean up temporary state and visuals.
-
-## Configuration
-
-Configuration: `plugins/BaByDragons/config.yml`. Messages: `messages.yml`. Trusted admin MiniMessage supports titles, common messages, rename help and optional `gui.<effects|rename|sit|follow|auto|manual|storage|close>.name` overrides. Descriptive lore is currently in Java.
-
-| Setting | Purpose |
-| --- | --- |
-| `models.galaxy.id`, `models.fire.id` | Distinct installed blueprint IDs |
-| `animations.idle/follow/pet/auto-attack/fire-attack` | Clip mappings |
-| `animations.pet-ticks` | Pet override duration |
-| `animations.execute-windup-ticks` | Delay from execute to impact/crystal |
-| `animations.execute-recovery-ticks` | Pause before return |
-| `movement.follow-distance` | Stop 2.5–4 blocks from owner; default 3 |
-| `movement.teleport-distance` | Emergency catch-up threshold; cross-world following also teleports |
-| `movement.attack-stop-distance` | Auto approach stop distance |
-| `movement.update-ticks` | Movement interval, 1–5 ticks |
-| `movement.speed-per-tick/attack-speed-per-tick` | Velocity caps in blocks/tick |
-| `movement.attack-timeout-seconds` | Maximum sequence duration |
-| `movement.name-height` | Name offset; does not resize model |
-| `effects.<strength|haste|absorption>.enabled/amplifier` | Effect availability and zero-based level |
-| `effects.refresh-ticks/duration-ticks` | Refresh/lifetime; lifetime must exceed twice refresh |
-| `auto-attack.enabled-by-default/manual-attack.enabled-by-default` | New dragon's initial toggles |
-| `auto-attack.cooldown-seconds/damage` | Auto cooldown and damage |
-| `auto-attack.levitation-seconds/levitation-amplifier/breath-radius` | Levitation and particle parameters |
-| `manual-attack.target-range/cooldown-seconds/damage/radius` | Range (max 64), independent cooldown, damage sphere |
-| `manual-attack.allowed-items` | AIR and/or STICK |
-| `manual-attack.required-hotbar-slot` | Must remain 9 |
-| `manual-attack.break-blocks` | Must remain false |
-| `manual-attack.crystal-ticks` | Crystal display duration |
-| `gui.title`, `storage.title` | Inventory titles |
-| `storage.enabled` | Must remain false; preview is available |
-| `persistence.save-interval-ticks` | Periodic save interval; default 200 |
-
-Numeric settings are range-checked. Attack timings are server sequence durations, not measured purchased clip lengths.
-
-## Persistence and restart
-
-Atomic human-readable `plugins/BaByDragons/data.yml` stores dragon/owner/controller/name UUIDs, name/color, normal state, current location and saved seat, effects/auto/manual toggles, independent cooldown timestamps and base model ID. Commands, successful attacks and shutdown save immediately; periodic writes capture movement.
-
-Recovery loads the saved chunk and finds PDC-tagged parts in loaded chunks, preferring saved IDs. It recreates missing parts, reconnects Galaxy and removes obvious plugin-tagged duplicates. Later chunk-load events clean stale parts; there are no per-tick world scans. One chunk ticket keeps the active dragon available. Malformed data is preserved and stops recovery. Missing saved worlds must be restored.
-
-Attacks are transient; only the normal FOLLOWING/SITTING state is saved. A crash can lose up to the periodic interval of movement. Phase 1 supports one global dragon.
-
-## Build
-
-With Java 25 and access to Maven Central/Paper:
-
-```sh
-./gradlew clean build
-```
-
-Exact output: `build/libs/BaByDragons 0.67.A.jar`. Gradle 9.3.1 and its distribution checksum are pinned.
-
-The cloud blocks Paper's Maven/server hosts. `bash tools/build-cloud.sh` compiles unmodified official Paper API source at `a4b87cf896e18419005ab172e8b1694ccc1abe7c` and official Mojang Brigadier at `9ba4f13c0fe82b07c08c2dc2d8043f075ffd0d98`. The ignored `.local/paper-api-source-build.jar` is compile/test input only. No API/server classes are bundled. This fallback is **not a runnable server**. Alternatively use `-PlocalPaperApi=/path/to/api.jar`.
-
-Prepared cloud commands:
-
-```sh
-export JAVA_HOME=/workspace/toolchains/jdk-25.0.4.1+1
-export GRADLE_USER_HOME=/workspace/gradle-cache
-export JAVA_TOOL_OPTIONS='-Dhttps.proxyHost=proxy -Dhttps.proxyPort=8080 -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts'
-bash tools/build-cloud.sh
-```
-
-The proxy/CA option is cloud-specific; omit on ordinary machines.
-
-## Acceptance and known limitations
-
-Use a backed-up disposable server and follow [TESTING.md](TESTING.md). Test every admin command/animation, repeated spawn, ownership, GUI transfers, effect providers, auto/projectile/PvP protection, manual controls, crystal safety in the End, interruptions, exact seat return and restart identity. Use full stop/start, not Bukkit `/reload`.
-
-Actual Paper/ModelEngine 4.1.1 startup, render appearance, flight physics, click routing, protection-plugin integration and live restart counts are unverified. Fire is a full temporary overlay. Direct flight can cross blocks. Name height and animation timing may need tuning. The JAR is published as a development build.
-
-## Phase 2 / later TODO
-
-Persistent storage; eggs/hatching; taming; loans/transfers; Enderman protection; multiple dragons; growth/hunger/breeding; shoulder/riding only if later requested; Bedrock renderer. None is implemented here.
-
-## Asset policy
-
-Only our source, tests, configuration/build files, Gradle wrapper and explicitly requested plugin download are published for 0.67.A. No purchased ModelEngine JAR, .bbmodel, textures, generated pack, vendor configuration or test-server files are uploaded. Earlier 0.1.0 prototype files and their attribution remain available as historical downloads.
+See [TESTING.md](TESTING.md) for automated coverage and the live acceptance checklist.
+Automated API doubles do not validate ModelEngine rendering or a real Minecraft client.
+No Phase B features are implemented.

@@ -14,6 +14,8 @@ plugins/
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
 !downloads/BaByDragons 0.67.A.jar
+!downloads/BaByDragons 0.67.B.jar
+!downloads/BaByDragons 1.67.A.jar
 **/blueprints/
 **/textures/
 **/resourcepack/
