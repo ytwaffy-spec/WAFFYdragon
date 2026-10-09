@@ -34,6 +34,7 @@ class AttackCoordinatorTest {
   when(damage.allowed(eq(enemy),eq(owner),anyBoolean())).thenReturn(true);
   when(models.attackTicks(anyBoolean())).thenReturn(44);when(models.fireReady()).thenReturn(true);when(models.beginFire(any(Location.class))).thenReturn(true);
   when(animations.attack(anyString())).thenReturn(true);when(models.attackFinished(anyBoolean())).thenReturn(true);
+  when(models.galaxyFinished(anyLong(),anyInt())).thenReturn(true);
   when(movement.toward(any(),any(),anyDouble(),anyDouble())).thenReturn(true);
   when(world.getNearbyEntities(any(Location.class),anyDouble(),anyDouble(),anyDouble())).thenReturn(List.of());
   when(movement.toward(any(),any(),anyDouble(),anyDouble(),anyString())).thenReturn(true);
@@ -45,9 +46,9 @@ class AttackCoordinatorTest {
   attacks.tick(1);verify(animations,times(1)).attack("execute");
   for(int tick=2;tick<=33;tick++) attacks.tick(tick);
   verify(damage,times(4)).damage(enemy,owner,20,false);assertEquals(0,data.autoAttackCooldownUntil);
-  when(models.attackFinished(false)).thenReturn(false);
+  when(models.galaxyFinished(anyLong(),anyInt())).thenReturn(false);
   attacks.tick(50);assertTrue(attacks.busy());
-  when(models.attackFinished(false)).thenReturn(true);attacks.tick(51);assertTrue(attacks.busy());
+  when(models.galaxyFinished(anyLong(),anyInt())).thenReturn(true);attacks.tick(51);assertTrue(attacks.busy());
   attacks.tick(52);assertFalse(attacks.busy());assertTrue(data.autoAttackCooldownUntil>System.currentTimeMillis());
   verify(animations,times(1)).attack("execute");
  }
@@ -119,5 +120,22 @@ class AttackCoordinatorTest {
  @Test void failedExecuteAndReleasesGate() {
   when(animations.attack(anyString())).thenReturn(false);assertTrue(attacks.startAuto(enemy));attacks.tick(1);
   assertFalse(attacks.busy());assertTrue(attacks.startAuto(enemy));
+  verify(plugin.sounds(),never()).play(eq("galaxy-execute-start"),any(),any());
+ }
+ @Test void galaxyUsesRequiredParticlePayloadAndNeverChasesDuringExecute() {
+  assertEquals(Float.class,Particle.DRAGON_BREATH.getDataType());
+  doAnswer(i->{throw new IllegalArgumentException("Missing Dragon Breath Float data");}).when(world)
+   .spawnParticle(eq(Particle.DRAGON_BREATH),any(Location.class),anyInt(),anyDouble(),anyDouble(),anyDouble(),anyDouble());
+  assertTrue(attacks.startAuto(enemy));attacks.tick(10);
+  var order=inOrder(animations,plugin.sounds());
+  order.verify(animations).attack("execute");order.verify(plugin.sounds()).play(eq("galaxy-execute-start"),any(),isNull());
+  clearInvocations(movement);
+  when(enemy.getLocation()).thenReturn(new Location(world,6.9,64,0));
+  for(int tick=11;tick<=42;tick++) attacks.tick(tick);
+  assertTrue(attacks.busy());verify(damage,times(4)).damage(enemy,owner,20,false);
+  verify(world,times(4)).spawnParticle(eq(Particle.DRAGON_BREATH),any(Location.class),eq(16),eq(.6),eq(.3),eq(.6),eq(.01),eq(1.0f));
+  verify(plugin.sounds(),times(4)).play(eq("galaxy-strike"),any(),isNull());
+  verify(movement,never()).toward(any(),any(),anyDouble(),anyDouble());
+  verify(animations,times(1)).attack("execute");
  }
 }

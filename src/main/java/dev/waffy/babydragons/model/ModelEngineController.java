@@ -127,11 +127,39 @@ public final class ModelEngineController {
   return result;
  }
  public boolean beginGalaxyAttack() {
-  stopGalaxy();
-  if(galaxy==null) return false;
-  galaxyAttack=call(play,call(animationHandler,galaxy),plugin.settings().s("galaxy-attack.animation.id"),0.0,.15,plugin.settings().d("galaxy-attack.animation.speed"),true);
-  if(galaxyAttack==null) return false;
-  call(forceLoop,galaxyAttack,once);return true;
+  galaxyAttack=null;
+  if(recoverGalaxy()) {
+   Object handler=call(animationHandler,galaxy);call(stop,handler);
+   String clip=plugin.settings().s("galaxy-attack.animation.id");
+   galaxyAttack=call(play,handler,clip,0.0,.15,1.0,true);
+   if(galaxyAttack!=null) {
+    call(forceLoop,galaxyAttack,once);
+    if(Boolean.TRUE.equals(call(isPlaying,handler,clip))) return true;
+   }
+  }
+  plugin.getLogger().warning("Galaxy execute failed to start.");return false;
+ }
+ private boolean recoverGalaxy() {
+  Entity controller=plugin.dragons().controller();
+  if(controller==null || !controller.isValid()) return false;
+  UUID id=controller.getUniqueId();Object current=call(get,null,id);
+  if(current==null) current=call(create,null,controller);
+  String modelId=plugin.settings().s("models.galaxy.id");
+  Object attached=((Map<?,?>)call(models,current)).get(modelId);
+  if(attached==null || Boolean.TRUE.equals(call(isDestroyed,attached))) {
+   if(attached!=null) call(removeModel,current,modelId);
+   attached=call(active,null,modelId);if(attached==null) return false;
+   call(autoRenderer,attached,true);call(add,current,attached,true);
+  }
+  controllerId=id;modeled=current;galaxy=attached;
+  call(visible,modeled,false);call(saved,modeled,false);
+  return !Boolean.TRUE.equals(call(isDestroyed,galaxy));
+ }
+ public boolean galaxyFinished(long elapsed,int duration) {
+  if(elapsed<duration) return false;
+  boolean playing=isGalaxyPlaying(plugin.settings().s("galaxy-attack.animation.id"));
+  boolean finished=galaxyAttack!=null && Boolean.TRUE.equals(call(propertyFinished,galaxyAttack));
+  return (finished && !playing) || elapsed>=duration+4;
  }
  public boolean attackFinished(boolean manual) {
   Object property=manual?fireAttack:galaxyAttack;
@@ -146,6 +174,12 @@ public final class ModelEngineController {
   return (int)Math.ceil(seconds*20/plugin.settings().d(kind+".animation.speed"))+4;
  }
  public void status(org.bukkit.command.CommandSender sender) {
+  Object current=controllerId==null?null:call(get,null,controllerId);
+  boolean attached=current!=null && galaxy!=null && ((Map<?,?>)call(models,current)).get(plugin.settings().s("models.galaxy.id"))==galaxy;
+  sender.sendMessage("Galaxy model attached: "+attached+" | Galaxy model destroyed: "+(galaxy!=null && Boolean.TRUE.equals(call(isDestroyed,galaxy))));
+  sender.sendMessage("execute configured: "+plugin.settings().s("galaxy-attack.animation.id")+" | execute property exists: "+(galaxyAttack!=null)
+   +" | execute isPlaying: "+isGalaxyPlaying(plugin.settings().s("galaxy-attack.animation.id")));
+  sender.sendMessage(plugin.attacks().galaxyDebug());
   describe(sender,"Galaxy "+plugin.settings().s("models.galaxy.id"),galaxy);
   describe(sender,"Fire "+fireId,fire);
  }

@@ -11,7 +11,7 @@ public final class AttackCoordinator {
  private enum Phase { APPROACH, EXECUTE, RETURN }
  private static final class Sequence {
   UUID token,owner;AttackGate.Kind kind;DragonState previous;DragonData.Position seat;
-  LivingEntity enemy;Location target,origin,lastProgress;
+  LivingEntity enemy;Location target,origin,lastProgress,attackPosition;
   Phase phase=Phase.APPROACH;long phaseStart,executeStart,progressTick;
   int animationTicks;boolean startHitDone,midHitDone,endHitDone,completed;ChainStrikes chain;
   FireRegion region;int[] fireTicks;final Set<UUID> participants=new HashSet<>();
@@ -28,6 +28,14 @@ public final class AttackCoordinator {
    +" | strike="+s.chain.index()+" | chain targets="+s.chain.targetCount()+" | hit="+s.chain.hit();
  }
  public UUID token() { return sequence==null?null:sequence.token; }
+ public String galaxyDebug() {
+  Sequence s=sequence;
+  if(s==null || s.kind!=AttackGate.Kind.AUTO) return "attack phase: idle";
+  return "attack phase: "+s.phase+" | execute elapsed: "+(s.phase==Phase.APPROACH?0:Math.max(0,plugin.tick()-s.executeStart))
+   +" | animation length: "+(s.animationTicks-4)+" ticks | strike index: "+s.chain.index()
+   +" | target: "+(s.enemy==null?s.target:s.enemy.getUniqueId())
+   +" | distance: "+(s.attackPosition==null?plugin.dragons().controller().getLocation():s.attackPosition).distance(s.target);
+ }
  public boolean active(UUID token) { return sequence!=null && sequence.token.equals(token); }
  public boolean startAuto(LivingEntity attacker) { return start(AttackGate.Kind.AUTO,attacker); }
  public boolean startManual(LivingEntity target) {
@@ -44,7 +52,7 @@ public final class AttackCoordinator {
   int animationTicks=plugin.models().attackTicks(kind==AttackGate.Kind.MANUAL);
   List<Integer> strikeTicks=plugin.settings().strikes();
   int clipTicks=Math.max(4,animationTicks-4);
-  if(strikeTicks.getLast()>clipTicks) strikeTicks=java.util.stream.IntStream.rangeClosed(1,4).map(i->i*clipTicks/4).boxed().toList();
+  if(strikeTicks.getLast()>=clipTicks) strikeTicks=java.util.stream.IntStream.rangeClosed(1,4).map(i->Math.max(i,i*clipTicks/5)).boxed().toList();
   UUID token=gate.acquire(plugin.dragons().data(),kind,System.currentTimeMillis());if(token==null) return false;
   Sequence s=new Sequence();s.token=token;s.kind=kind;s.owner=owner.getUniqueId();s.animationTicks=animationTicks;
   if(kind==AttackGate.Kind.MANUAL) {
@@ -71,8 +79,8 @@ public final class AttackCoordinator {
      refreshTarget(s,owner);
      Location destination=s.kind==AttackGate.Kind.MANUAL?s.target.clone().add(0,1.7,0):s.target;
      Vector gap=base.getLocation().toVector().subtract(s.target.toVector());
-     boolean committed=s.kind==AttackGate.Kind.MANUAL && gap.getX()*gap.getX()+gap.getZ()*gap.getZ()<=3.5*3.5 && Math.abs(gap.getY())<=3;
-     boolean arrived=committed || plugin.movement().toward(base,destination,plugin.settings().d("movement.attack.max-speed"),s.kind==AttackGate.Kind.MANUAL?1:plugin.settings().d("movement.attack-stop-distance"));
+     boolean committed=s.kind==AttackGate.Kind.MANUAL?gap.getX()*gap.getX()+gap.getZ()*gap.getZ()<=3.5*3.5 && Math.abs(gap.getY())<=3:gap.lengthSquared()<=3.5*3.5;
+     boolean arrived=committed || plugin.movement().toward(base,destination,plugin.settings().d("movement.attack.max-speed"),s.kind==AttackGate.Kind.MANUAL?1:3.5);
      plugin.movement().face(base,s.target);
      plugin.animations().normal(!arrived,tick);
      if(arrived) beginExecute(s,base,tick);
@@ -84,7 +92,8 @@ public final class AttackCoordinator {
      else fire(s,owner,base,elapsed);
      if(!active(s.token)) return;
      boolean moments=s.kind==AttackGate.Kind.AUTO?s.chain.complete():s.endHitDone;
-     if(moments && elapsed>=s.animationTicks && plugin.models().attackFinished(s.kind==AttackGate.Kind.MANUAL)) {
+     boolean finished=s.kind==AttackGate.Kind.MANUAL?plugin.models().attackFinished(true):plugin.models().galaxyFinished(elapsed,s.animationTicks);
+     if(moments && elapsed>=s.animationTicks && finished) {
       if(s.kind==AttackGate.Kind.AUTO) levitate(s,owner);
       s.completed=true;startReturn(s,tick);
      } else if(elapsed>s.animationTicks+40) {
@@ -118,6 +127,7 @@ public final class AttackCoordinator {
    played=plugin.models().beginFire(ground);
   }
   if(!played) { cancel();return; }
+  if(!manual) s.attackPosition=base.getLocation().clone();
   s.phase=Phase.EXECUTE;s.executeStart=tick;
   plugin.sounds().play(manual?"fire-execute":"galaxy-execute-start",base.getLocation(),null);
   if(manual) fire(s,plugin.dragons().owner(),base,0);
@@ -153,14 +163,14 @@ public final class AttackCoordinator {
   if(!active(s.token)) return;
   refreshTarget(s,owner);
   if(!s.chain.complete()) {
-   plugin.movement().toward(base,s.target,plugin.settings().d("movement.attack.max-speed"),plugin.settings().d("movement.attack-stop-distance"));
+   plugin.movement().stop(base);
    plugin.movement().face(base,s.target);
    if(elapsed%4==0) indicator(s.target);
    while(active(s.token) && s.chain.due(elapsed)) {
     UUID selected=s.enemy==null?null:s.enemy.getUniqueId();
-    s.target.getWorld().spawnParticle(Particle.DRAGON_BREATH,s.target.clone().add(0,.8,0),16,.6,.3,.6,.01);
+    s.target.getWorld().spawnParticle(Particle.DRAGON_BREATH,s.target.clone().add(0,.8,0),16,.6,.3,.6,.01,1.0f);
     plugin.sounds().play("galaxy-strike",s.target,null);
-    if(eligible(s,s.enemy,owner) && base.getLocation().distanceSquared(s.target)<=3.5*3.5) {
+    if(eligible(s,s.enemy,owner) && s.attackPosition.distanceSquared(s.target)<=25) {
      double amount=plugin.settings().d(s.enemy instanceof Player?"galaxy-attack.player-damage-per-strike":"galaxy-attack.mob-damage-per-strike");
      if(plugin.damage().damage(s.enemy,owner,amount,false)) s.chain.hit(selected);
     }

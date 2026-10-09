@@ -19,8 +19,12 @@ public final class DragonAnimationController {
   current=clip;overrideUntil=tick+duration;return true;
  }
  public boolean attack(String clip) {
-  reset();attackOverride=true;
-  return clip.isEmpty() || plugin.models().beginGalaxyAttack();
+  if(clip.isEmpty()) { reset();attackOverride=true;return true; }
+  current=null;overrideUntil=0;attackOverride=true;
+  try {
+   if(plugin.models().beginGalaxyAttack()) { current=clip;return true; }
+   reset();return false;
+  } catch(RuntimeException error) { reset();throw error; }
  }
  public void sitting(long tick) {
   if(attackOverride || tick<overrideUntil) return;
